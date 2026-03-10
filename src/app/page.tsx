@@ -24,6 +24,49 @@ const LANGUAGES: LangOption[] = [
 
 const isRTL = (code: string) => code === "Arabic" || code === "Urdu";
 
+// --- Saved sessions ---
+interface SavedSession {
+  id: string;
+  date: string;
+  sourceLang: string;
+  targetLang: string;
+  original: string;
+  translation: string;
+  duration: number;
+}
+
+const STORAGE_KEY = "livelisten_sessions";
+
+function loadSessions(): SavedSession[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveSessions(sessions: SavedSession[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+}
+
+function saveSession(session: SavedSession) {
+  const sessions = loadSessions();
+  sessions.unshift(session);
+  // Keep last 50 sessions
+  if (sessions.length > 50) sessions.length = 50;
+  saveSessions(sessions);
+}
+
+function deleteSession(id: string) {
+  const sessions = loadSessions().filter((s) => s.id !== id);
+  saveSessions(sessions);
+}
+
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) +
+    " at " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
 function formatTime(sec: number) {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
@@ -87,6 +130,9 @@ export default function LiveListen() {
   const [elapsed, setElapsed] = useState(0);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const [useDeepgram, setUseDeepgram] = useState(true);
+  const [showHistory, setShowHistory] = useState(false);
+  const [viewingSession, setViewingSession] = useState<SavedSession | null>(null);
+  const [sessions, setSessions] = useState<SavedSession[]>([]);
 
   const leftPanelRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
@@ -105,6 +151,9 @@ export default function LiveListen() {
   const audioLevels = useAudioVisualizer(micStream);
 
   useEffect(() => { isListeningRef.current = isListening; }, [isListening]);
+
+  // Load saved sessions on mount
+  useEffect(() => { setSessions(loadSessions()); }, []);
 
   useEffect(() => {
     if (isListening) {
@@ -287,7 +336,31 @@ export default function LiveListen() {
     if (micStream) { micStream.getTracks().forEach((t) => t.stop()); setMicStream(null); }
     speechSynthesis.cancel();
     if (pendingTextRef.current.trim()) { const r = pendingTextRef.current; pendingTextRef.current = ""; translateText(r, false); }
-  }, [translateText, micStream]);
+
+    // Auto-save session if there's content
+    // Use setTimeout to let final translation complete
+    setTimeout(() => {
+      setFullOriginal((orig) => {
+        setFullTranslation((trans) => {
+          if (orig.trim() || trans.trim()) {
+            const session: SavedSession = {
+              id: Date.now().toString(),
+              date: new Date().toISOString(),
+              sourceLang: sourceLang.code,
+              targetLang: targetLang.code,
+              original: orig,
+              translation: trans,
+              duration: elapsedRef.current ? elapsed : elapsed,
+            };
+            saveSession(session);
+            setSessions(loadSessions());
+          }
+          return trans;
+        });
+        return orig;
+      });
+    }, 2000);
+  }, [translateText, micStream, sourceLang.code, targetLang.code, elapsed]);
 
   useEffect(() => {
     return () => { if (recognitionRef.current) { recognitionRef.current.onend = null; recognitionRef.current.abort(); } if (wsRef.current) { try { wsRef.current.close(); } catch { /* */ } } speechSynthesis.cancel(); };
@@ -311,7 +384,15 @@ export default function LiveListen() {
         </div>
 
         {/* Top bar */}
-        <header className="flex items-center justify-end px-5 py-4 shrink-0 relative z-10">
+        <header className="flex items-center justify-between px-5 py-4 shrink-0 relative z-10">
+          {sessions.length > 0 ? (
+            <button onClick={() => setShowHistory(true)} className="flex items-center gap-1.5 p-2 rounded-xl" style={{ color: "var(--text-muted)" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 8v4l3 3" /><circle cx="12" cy="12" r="10" />
+              </svg>
+              <span style={{ fontSize: 12, fontFamily: "var(--font-sans)", fontWeight: 500 }}>History</span>
+            </button>
+          ) : <div />}
           <button onClick={() => setShowSettings(true)} className="p-2 rounded-xl" style={{ color: "var(--text-muted)" }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" />
@@ -370,6 +451,52 @@ export default function LiveListen() {
         )}
 
         {renderSettings()}
+        {renderHistory()}
+        {renderSessionViewer()}
+      </div>
+    );
+  }
+
+  // --- Viewing a past session ---
+  if (viewingSession) {
+    const vSourceRTL = isRTL(viewingSession.sourceLang);
+    const vTargetRTL = isRTL(viewingSession.targetLang);
+    return (
+      <div className="h-dvh flex flex-col" style={{ background: "var(--bg)" }}>
+        <header className="flex items-center justify-between px-5 py-3 shrink-0" style={{ borderBottom: "1px solid var(--surface-border)" }}>
+          <button onClick={() => setViewingSession(null)} className="flex items-center gap-2 p-1" style={{ color: "var(--accent)" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            <span style={{ fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 500 }}>Back</span>
+          </button>
+          <div className="text-right">
+            <p style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--text-muted)" }}>{formatDate(viewingSession.date)}</p>
+            <p style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--text-muted)" }}>
+              {viewingSession.sourceLang} &rarr; {viewingSession.targetLang} &middot; {formatTime(viewingSession.duration)}
+            </p>
+          </div>
+        </header>
+
+        <div className="flex-1 flex min-h-0">
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="px-5 py-2.5 shrink-0" style={{ borderBottom: "1px solid var(--surface-border)" }}>
+              <span className="panel-label">{viewingSession.targetLang}</span>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-5" style={{ direction: vTargetRTL ? "rtl" : "ltr" }}>
+              <div className="transcript-translation">{viewingSession.translation || <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>No translation recorded</span>}</div>
+            </div>
+          </div>
+          <div className="panel-divider shrink-0" />
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="px-5 py-2.5 shrink-0" style={{ borderBottom: "1px solid var(--surface-border)" }}>
+              <span className="panel-label">{viewingSession.sourceLang}</span>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-5" style={{ direction: vSourceRTL ? "rtl" : "ltr" }}>
+              <div className={vSourceRTL ? "transcript-original-rtl" : "transcript-original"}>{viewingSession.original || <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>No transcript recorded</span>}</div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -399,6 +526,11 @@ export default function LiveListen() {
               ) : (
                 <><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" /><line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" /></>
               )}
+            </svg>
+          </button>
+          <button onClick={() => setShowHistory(true)} className="p-1.5 rounded-lg" style={{ color: "var(--text-muted)" }} title="Session history">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
             </svg>
           </button>
           <button onClick={() => setShowSettings(true)} className="p-1.5 rounded-lg" style={{ color: "var(--text-muted)" }}>
@@ -514,8 +646,67 @@ export default function LiveListen() {
       </div>
 
       {renderSettings()}
+      {renderHistory()}
     </div>
   );
+
+  function renderHistory() {
+    if (!showHistory) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.65)" }} onClick={() => setShowHistory(false)}>
+        <div className="w-full max-w-lg rounded-t-3xl p-6 pb-10 glass fade-in" style={{ border: "1px solid var(--surface-border)", borderBottom: "none", maxHeight: "75vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-4 shrink-0">
+            <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 600, color: "var(--text)" }}>Session History</h2>
+            <button onClick={() => setShowHistory(false)} className="p-1.5 rounded-lg" style={{ color: "var(--text-dim)" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto space-y-2">
+            {sessions.length === 0 && (
+              <p style={{ fontFamily: "var(--font-serif)", fontSize: 14, color: "var(--text-muted)", textAlign: "center", padding: "2rem 0" }}>
+                No saved sessions yet. Sessions are saved automatically when you stop listening.
+              </p>
+            )}
+            {sessions.map((s) => (
+              <div key={s.id} className="flex items-center justify-between rounded-xl p-3 transition-colors" style={{ background: "rgba(196, 168, 130, 0.04)", border: "1px solid var(--surface-border)", cursor: "pointer" }}
+                onClick={() => { setShowHistory(false); setViewingSession(s); }}>
+                <div className="flex-1 min-w-0">
+                  <p style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 500, color: "var(--text-dim)", marginBottom: 2 }}>
+                    {formatDate(s.date)}
+                  </p>
+                  <p style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--text-muted)" }}>
+                    {s.sourceLang} &rarr; {s.targetLang} &middot; {formatTime(s.duration)} &middot; {wordCount(s.translation)} words
+                  </p>
+                  {s.translation && (
+                    <p className="mt-1 truncate" style={{ fontFamily: "var(--font-serif)", fontSize: 13, color: "var(--text-dim)", maxWidth: "100%" }}>
+                      {s.translation.slice(0, 80)}{s.translation.length > 80 ? "..." : ""}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 ml-3 shrink-0">
+                  <button className="p-1.5 rounded-lg transition-colors" style={{ color: "var(--text-muted)" }}
+                    onClick={(e) => { e.stopPropagation(); deleteSession(s.id); setSessions(loadSessions()); }}
+                    title="Delete">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                  </button>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderSessionViewer() {
+    // This is handled by the top-level viewingSession check now
+    return null;
+  }
 
   function renderSettings() {
     if (!showSettings) return null;
