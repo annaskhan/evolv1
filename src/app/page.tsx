@@ -35,7 +35,6 @@ function wordCount(text: string) {
   return text.trim().split(/\s+/).length;
 }
 
-// --- Audio Visualizer Hook ---
 function useAudioVisualizer(stream: MediaStream | null) {
   const [levels, setLevels] = useState<number[]>(new Array(24).fill(0));
   const animRef = useRef<number>(0);
@@ -46,7 +45,6 @@ function useAudioVisualizer(stream: MediaStream | null) {
       if (animRef.current) cancelAnimationFrame(animRef.current);
       return;
     }
-
     const ctx = new AudioContext();
     const source = ctx.createMediaStreamSource(stream);
     const analyser = ctx.createAnalyser();
@@ -60,27 +58,19 @@ function useAudioVisualizer(stream: MediaStream | null) {
       if (cancelled) return;
       analyser.getByteFrequencyData(data);
       const bars: number[] = [];
-      const binCount = data.length;
       for (let i = 0; i < 24; i++) {
-        const idx = Math.floor((i / 24) * binCount);
-        bars.push(data[idx] / 255);
+        bars.push(data[Math.floor((i / 24) * data.length)] / 255);
       }
       setLevels(bars);
       animRef.current = requestAnimationFrame(tick);
     }
     tick();
-
-    return () => {
-      cancelled = true;
-      if (animRef.current) cancelAnimationFrame(animRef.current);
-      ctx.close();
-    };
+    return () => { cancelled = true; if (animRef.current) cancelAnimationFrame(animRef.current); ctx.close(); };
   }, [stream]);
 
   return levels;
 }
 
-// --- Component ---
 export default function LiveListen() {
   const [isListening, setIsListening] = useState(false);
   const [fullOriginal, setFullOriginal] = useState("");
@@ -116,7 +106,6 @@ export default function LiveListen() {
 
   useEffect(() => { isListeningRef.current = isListening; }, [isListening]);
 
-  // Elapsed timer
   useEffect(() => {
     if (isListening) {
       setElapsed(0);
@@ -128,10 +117,7 @@ export default function LiveListen() {
   }, [isListening]);
 
   useEffect(() => {
-    const loadVoices = () => {
-      const v = speechSynthesis.getVoices();
-      if (v.length > 0) setAvailableVoices(v);
-    };
+    const loadVoices = () => { const v = speechSynthesis.getVoices(); if (v.length > 0) setAvailableVoices(v); };
     loadVoices();
     speechSynthesis.addEventListener("voiceschanged", loadVoices);
     return () => speechSynthesis.removeEventListener("voiceschanged", loadVoices);
@@ -145,307 +131,149 @@ export default function LiveListen() {
   const getBestVoice = useCallback((): SpeechSynthesisVoice | null => {
     const voices = speechSynthesis.getVoices();
     if (!voices.length) return null;
-    if (selectedVoiceURI) {
-      const s = voices.find((v) => v.voiceURI === selectedVoiceURI);
-      if (s) return s;
-    }
+    if (selectedVoiceURI) { const s = voices.find((v) => v.voiceURI === selectedVoiceURI); if (s) return s; }
     const lc = targetLang.speechCode.split("-")[0];
     const lv = voices.filter((v) => v.lang.startsWith(lc));
     if (!lv.length) return null;
-    const p = lv.find((v) => /natural|premium|enhanced|neural/i.test(v.name));
-    if (p) return p;
-    return lv[0];
+    return lv.find((v) => /natural|premium|enhanced|neural/i.test(v.name)) || lv[0];
   }, [targetLang.speechCode, selectedVoiceURI]);
 
   const speak = useCallback((text: string) => {
     if (!voiceEnabled || !text) return;
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = targetLang.speechCode;
-    u.rate = 0.85; u.pitch = 0.95; u.volume = 0.9;
-    const v = getBestVoice();
-    if (v) u.voice = v;
+    u.lang = targetLang.speechCode; u.rate = 0.85; u.pitch = 0.95; u.volume = 0.9;
+    const v = getBestVoice(); if (v) u.voice = v;
     speechSynthesis.speak(u);
   }, [voiceEnabled, targetLang.speechCode, getBestVoice]);
 
   const translateText = useCallback(async (text: string, isInterim = false) => {
     if (!text.trim()) return;
-
     if (isInterim && abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     if (isInterim) abortRef.current = controller;
 
     try {
       const res = await fetch("/api/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, sourceLang: sourceLang.code, targetLang: targetLang.code, stream: true }),
         signal: controller.signal,
       });
-
-      if (!res.ok) {
-        const data = await res.json();
-        if (data.error) setError(data.error);
-        return;
-      }
-
-      const reader = res.body?.getReader();
-      if (!reader) return;
+      if (!res.ok) { const d = await res.json(); if (d.error) setError(d.error); return; }
+      const reader = res.body?.getReader(); if (!reader) return;
       const decoder = new TextDecoder();
       let result = "";
-
       while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        const { done, value } = await reader.read(); if (done) break;
         result += decoder.decode(value, { stream: true });
         setStreamingTranslation(result);
       }
-
       if (!isInterim) {
         setFullOriginal((prev) => prev + (prev ? " " : "") + text);
         setFullTranslation((prev) => prev + (prev ? " " : "") + result);
-        setStreamingTranslation("");
-        setCurrentPartial("");
-        speak(result);
+        setStreamingTranslation(""); setCurrentPartial(""); speak(result);
       }
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
-      console.error(e);
-      if (!isInterim) setError("Translation service error");
-    } finally {
-      if (isInterim) abortRef.current = null;
-    }
+      console.error(e); if (!isInterim) setError("Translation service error");
+    } finally { if (isInterim) abortRef.current = null; }
   }, [sourceLang.code, targetLang.code, speak]);
 
-  // --- Deepgram WebSocket streaming ---
   const startDeepgram = useCallback(async () => {
-    setError(null);
-    setFullOriginal("");
-    setFullTranslation("");
-    setStreamingTranslation("");
-    setCurrentPartial("");
-
+    setError(null); setFullOriginal(""); setFullTranslation(""); setStreamingTranslation(""); setCurrentPartial("");
     try {
-      // Get Deepgram API key
       const tokenRes = await fetch("/api/deepgram-token");
       const tokenData = await tokenRes.json();
-      if (tokenData.error) {
-        setError(tokenData.error + " — falling back to browser speech recognition");
-        setUseDeepgram(false);
-        return false;
-      }
+      if (tokenData.error) { setError(tokenData.error + " — using browser recognition"); setUseDeepgram(false); return false; }
 
-      // Get mic stream
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          channelCount: 1,
-          sampleRate: 16000,
-          echoCancellation: true,
-          noiseSuppression: true,
-        },
-      });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, sampleRate: 16000, echoCancellation: true, noiseSuppression: true } });
       setMicStream(stream);
 
-      // Connect to Deepgram WebSocket
-      const lang = sourceLang.deepgramCode;
-      const wsUrl = `wss://api.deepgram.com/v1/listen?language=${lang}&model=nova-3&punctuate=true&interim_results=true&utterance_end_ms=1000&vad_events=true&smart_format=true&encoding=linear16&sample_rate=16000`;
-
+      const wsUrl = `wss://api.deepgram.com/v1/listen?language=${sourceLang.deepgramCode}&model=nova-3&punctuate=true&interim_results=true&utterance_end_ms=1000&vad_events=true&smart_format=true&encoding=linear16&sample_rate=16000`;
       const ws = new WebSocket(wsUrl, ["token", tokenData.key]);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        // Start sending audio via AudioWorklet or ScriptProcessor
         const audioCtx = new AudioContext({ sampleRate: 16000 });
         const source = audioCtx.createMediaStreamSource(stream);
         const processor = audioCtx.createScriptProcessor(4096, 1, 1);
-
         processor.onaudioprocess = (e) => {
           if (ws.readyState !== WebSocket.OPEN) return;
-          const float32 = e.inputBuffer.getChannelData(0);
-          // Convert float32 to int16
-          const int16 = new Int16Array(float32.length);
-          for (let i = 0; i < float32.length; i++) {
-            const s = Math.max(-1, Math.min(1, float32[i]));
-            int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-          }
+          const f = e.inputBuffer.getChannelData(0);
+          const int16 = new Int16Array(f.length);
+          for (let i = 0; i < f.length; i++) { const s = Math.max(-1, Math.min(1, f[i])); int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff; }
           ws.send(int16.buffer);
         };
-
-        source.connect(processor);
-        processor.connect(audioCtx.destination);
-
-        // Store for cleanup
-        mediaRecorderRef.current = { stop: () => {
-          processor.disconnect();
-          source.disconnect();
-          audioCtx.close();
-        }} as unknown as MediaRecorder;
+        source.connect(processor); processor.connect(audioCtx.destination);
+        mediaRecorderRef.current = { stop: () => { processor.disconnect(); source.disconnect(); audioCtx.close(); } } as unknown as MediaRecorder;
       };
 
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-
         if (data.type === "Results") {
           const transcript = data.channel?.alternatives?.[0]?.transcript || "";
           const isFinal = data.is_final;
-
           if (transcript) {
             if (isFinal) {
               pendingTextRef.current += (pendingTextRef.current ? " " : "") + transcript;
               setCurrentPartial(pendingTextRef.current);
-
-              // Clear interim timer
               if (interimTimerRef.current) { clearTimeout(interimTimerRef.current); interimTimerRef.current = null; }
-
-              // Debounce final translation
               if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
               debounceTimerRef.current = setTimeout(() => {
-                if (pendingTextRef.current.trim()) {
-                  const txt = pendingTextRef.current;
-                  pendingTextRef.current = "";
-                  translateText(txt, false);
-                }
+                if (pendingTextRef.current.trim()) { const t = pendingTextRef.current; pendingTextRef.current = ""; translateText(t, false); }
               }, 500);
             } else {
-              // Interim result — show immediately
               const display = [pendingTextRef.current, transcript].filter(Boolean).join(" ");
               setCurrentPartial(display);
-
-              // Smart interim translation
               if (display.trim().length > 10 && display !== lastInterimRef.current) {
                 lastInterimRef.current = display;
                 if (interimTimerRef.current) clearTimeout(interimTimerRef.current);
-                interimTimerRef.current = setTimeout(() => {
-                  translateText(display, true);
-                }, 600);
+                interimTimerRef.current = setTimeout(() => translateText(display, true), 600);
               }
             }
           }
         }
-
-        // Utterance end — force translate what we have
-        if (data.type === "UtteranceEnd") {
-          if (pendingTextRef.current.trim()) {
-            if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-            const txt = pendingTextRef.current;
-            pendingTextRef.current = "";
-            translateText(txt, false);
-          }
+        if (data.type === "UtteranceEnd" && pendingTextRef.current.trim()) {
+          if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+          const t = pendingTextRef.current; pendingTextRef.current = ""; translateText(t, false);
         }
       };
 
-      ws.onerror = () => {
-        setError("Deepgram connection error — falling back to browser recognition");
-        setUseDeepgram(false);
-      };
-
-      ws.onclose = () => {
-        // Translate any remaining pending text
-        if (pendingTextRef.current.trim() && isListeningRef.current) {
-          const txt = pendingTextRef.current;
-          pendingTextRef.current = "";
-          translateText(txt, false);
-        }
-      };
-
-      setIsListening(true);
-      return true;
-    } catch (e) {
-      console.error("Deepgram start error:", e);
-      setError("Could not start Deepgram — falling back to browser recognition");
-      setUseDeepgram(false);
-      return false;
-    }
+      ws.onerror = () => { setError("Deepgram connection error — using browser recognition"); setUseDeepgram(false); };
+      ws.onclose = () => { if (pendingTextRef.current.trim() && isListeningRef.current) { const t = pendingTextRef.current; pendingTextRef.current = ""; translateText(t, false); } };
+      setIsListening(true); return true;
+    } catch (e) { console.error(e); setError("Could not start Deepgram"); setUseDeepgram(false); return false; }
   }, [sourceLang.deepgramCode, translateText]);
 
-  // --- Browser SpeechRecognition fallback ---
   const startBrowserRecognition = useCallback(async () => {
-    setError(null);
-    setFullOriginal("");
-    setFullTranslation("");
-    setStreamingTranslation("");
-    setCurrentPartial("");
-
-    // Get mic for visualizer
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setMicStream(stream);
-    } catch { /* visualizer just won't work */ }
-
+    setError(null); setFullOriginal(""); setFullTranslation(""); setStreamingTranslation(""); setCurrentPartial("");
+    try { const s = await navigator.mediaDevices.getUserMedia({ audio: true }); setMicStream(s); } catch { /* */ }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { setError("Speech recognition not supported. Try Chrome or Safari."); return; }
-
     const recognition = new SR();
-    recognition.lang = sourceLang.speechCode;
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-
+    recognition.lang = sourceLang.speechCode; recognition.continuous = true; recognition.interimResults = true; recognition.maxAlternatives = 1;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
       let interim = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const r = event.results[i];
-        if (r.isFinal) {
-          const t = r[0].transcript.trim();
-          if (t) {
-            pendingTextRef.current += (pendingTextRef.current ? " " : "") + t;
-            if (interimTimerRef.current) { clearTimeout(interimTimerRef.current); interimTimerRef.current = null; }
-            if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-            debounceTimerRef.current = setTimeout(() => {
-              if (pendingTextRef.current.trim()) {
-                const txt = pendingTextRef.current;
-                pendingTextRef.current = "";
-                translateText(txt, false);
-              }
-            }, 500);
-          }
-        } else {
-          interim += r[0].transcript;
-        }
+        if (r.isFinal) { const t = r[0].transcript.trim(); if (t) { pendingTextRef.current += (pendingTextRef.current ? " " : "") + t; if (interimTimerRef.current) { clearTimeout(interimTimerRef.current); interimTimerRef.current = null; } if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); debounceTimerRef.current = setTimeout(() => { if (pendingTextRef.current.trim()) { const txt = pendingTextRef.current; pendingTextRef.current = ""; translateText(txt, false); } }, 500); } }
+        else { interim += r[0].transcript; }
       }
-
-      const full = [pendingTextRef.current, interim].filter(Boolean).join(" ");
-      if (full) setCurrentPartial(full);
-
+      const full = [pendingTextRef.current, interim].filter(Boolean).join(" "); if (full) setCurrentPartial(full);
       const combined = [pendingTextRef.current, interim].filter(Boolean).join(" ");
-      if (combined.trim().length > 10 && combined !== lastInterimRef.current) {
-        lastInterimRef.current = combined;
-        if (interimTimerRef.current) clearTimeout(interimTimerRef.current);
-        interimTimerRef.current = setTimeout(() => {
-          translateText(combined, true);
-        }, 600);
-      }
+      if (combined.trim().length > 10 && combined !== lastInterimRef.current) { lastInterimRef.current = combined; if (interimTimerRef.current) clearTimeout(interimTimerRef.current); interimTimerRef.current = setTimeout(() => translateText(combined, true), 600); }
     };
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onerror = (event: any) => {
-      if (event.error === "no-speech" || event.error === "aborted") return;
-      setError(`Microphone error: ${event.error}`);
-    };
-
-    recognition.onend = () => {
-      if (isListeningRef.current) {
-        try { recognition.start(); } catch { /* */ }
-      }
-    };
-
+    recognition.onerror = (event: any) => { if (event.error === "no-speech" || event.error === "aborted") return; setError(`Microphone error: ${event.error}`); };
+    recognition.onend = () => { if (isListeningRef.current) { try { recognition.start(); } catch { /* */ } } };
     recognitionRef.current = recognition;
-    try { recognition.start(); setIsListening(true); }
-    catch { setError("Could not start microphone."); }
+    try { recognition.start(); setIsListening(true); } catch { setError("Could not start microphone."); }
   }, [sourceLang.speechCode, translateText]);
 
-  // --- Start listening (tries Deepgram first, falls back to browser) ---
   const startListening = useCallback(async () => {
-    if (useDeepgram) {
-      const ok = await startDeepgram();
-      if (!ok) {
-        // Fallback
-        startBrowserRecognition();
-      }
-    } else {
-      startBrowserRecognition();
-    }
+    if (useDeepgram) { const ok = await startDeepgram(); if (!ok) startBrowserRecognition(); }
+    else startBrowserRecognition();
   }, [useDeepgram, startDeepgram, startBrowserRecognition]);
 
   const stopListening = useCallback(() => {
@@ -453,59 +281,102 @@ export default function LiveListen() {
     if (debounceTimerRef.current) { clearTimeout(debounceTimerRef.current); debounceTimerRef.current = null; }
     if (interimTimerRef.current) { clearTimeout(interimTimerRef.current); interimTimerRef.current = null; }
     if (abortRef.current) { abortRef.current.abort(); abortRef.current = null; }
-
-    // Stop Deepgram
-    if (wsRef.current) {
-      try { wsRef.current.close(); } catch { /* */ }
-      wsRef.current = null;
-    }
-    if (mediaRecorderRef.current) {
-      try { mediaRecorderRef.current.stop(); } catch { /* */ }
-      mediaRecorderRef.current = null;
-    }
-
-    // Stop browser recognition
-    if (recognitionRef.current) {
-      recognitionRef.current.onend = null;
-      recognitionRef.current.abort();
-      recognitionRef.current = null;
-    }
-
-    // Stop mic stream
-    if (micStream) {
-      micStream.getTracks().forEach((t) => t.stop());
-      setMicStream(null);
-    }
-
+    if (wsRef.current) { try { wsRef.current.close(); } catch { /* */ } wsRef.current = null; }
+    if (mediaRecorderRef.current) { try { mediaRecorderRef.current.stop(); } catch { /* */ } mediaRecorderRef.current = null; }
+    if (recognitionRef.current) { recognitionRef.current.onend = null; recognitionRef.current.abort(); recognitionRef.current = null; }
+    if (micStream) { micStream.getTracks().forEach((t) => t.stop()); setMicStream(null); }
     speechSynthesis.cancel();
-
-    if (pendingTextRef.current.trim()) {
-      const rem = pendingTextRef.current;
-      pendingTextRef.current = "";
-      translateText(rem, false);
-    }
+    if (pendingTextRef.current.trim()) { const r = pendingTextRef.current; pendingTextRef.current = ""; translateText(r, false); }
   }, [translateText, micStream]);
 
   useEffect(() => {
-    return () => {
-      if (recognitionRef.current) { recognitionRef.current.onend = null; recognitionRef.current.abort(); }
-      if (wsRef.current) { try { wsRef.current.close(); } catch { /* */ } }
-      speechSynthesis.cancel();
-    };
+    return () => { if (recognitionRef.current) { recognitionRef.current.onend = null; recognitionRef.current.abort(); } if (wsRef.current) { try { wsRef.current.close(); } catch { /* */ } } speechSynthesis.cancel(); };
   }, []);
 
   const sourceIsRTL = isRTL(sourceLang.code);
   const targetIsRTL = isRTL(targetLang.code);
-
   const displayOriginal = fullOriginal + (currentPartial ? (fullOriginal ? " " : "") + currentPartial : "");
   const displayTranslation = fullTranslation + (streamingTranslation ? (fullTranslation ? " " : "") + streamingTranslation : "");
-
   const origWords = wordCount(displayOriginal);
   const transWords = wordCount(displayTranslation);
 
+  // --- Welcome screen (not listening, no text) ---
+  if (!isListening && !displayOriginal && !displayTranslation) {
+    return (
+      <div className="h-dvh flex flex-col relative overflow-hidden" style={{ background: "var(--bg)" }}>
+        {/* Ambient orbs for warmth */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="ambient-orb ambient-orb-1" />
+          <div className="ambient-orb ambient-orb-2" />
+        </div>
+
+        {/* Top bar */}
+        <header className="flex items-center justify-end px-5 py-4 shrink-0 relative z-10">
+          <button onClick={() => setShowSettings(true)} className="p-2 rounded-xl" style={{ color: "var(--text-muted)" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </button>
+        </header>
+
+        {/* Welcome content */}
+        <div className="flex-1 flex flex-col items-center justify-center px-8 relative z-10 fade-in">
+          <h1 className="text-3xl font-semibold tracking-tight mb-3" style={{ fontFamily: "var(--font-serif)", color: "var(--text)" }}>
+            LiveListen
+          </h1>
+          <p className="text-center mb-1" style={{ fontFamily: "var(--font-serif)", fontSize: 17, color: "var(--text-dim)", maxWidth: 340, lineHeight: 1.6 }}>
+            Real-time translation for sermons, speeches, and conversations.
+          </p>
+          <p className="text-center mb-10" style={{ fontFamily: "var(--font-serif)", fontSize: 15, color: "var(--text-muted)", maxWidth: 300, lineHeight: 1.5 }}>
+            Tap below to begin listening. The translation will appear as the speaker talks.
+          </p>
+
+          {/* Language indicator */}
+          <div className="flex items-center gap-3 mb-10">
+            <span style={{ fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 500, color: "var(--text-dim)" }}>{sourceLang.label}</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+            <span style={{ fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 500, color: "var(--text-dim)" }}>{targetLang.label}</span>
+          </div>
+
+          {/* Start button */}
+          <div className="relative">
+            <button
+              onClick={startListening}
+              className="relative w-20 h-20 rounded-full flex items-center justify-center glow-btn"
+              style={{ background: "var(--accent-gradient)", border: "none", cursor: "pointer", zIndex: 1 }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
+              </svg>
+            </button>
+          </div>
+
+          <p className="mt-5 text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>
+            Tap to start listening
+          </p>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="absolute bottom-6 left-4 right-4 px-4 py-3 rounded-xl text-sm flex items-center justify-between z-20"
+            style={{ background: "rgba(194, 112, 112, 0.1)", color: "var(--danger)", border: "1px solid rgba(194, 112, 112, 0.15)" }}>
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="ml-3 opacity-70 hover:opacity-100">&times;</button>
+          </div>
+        )}
+
+        {renderSettings()}
+      </div>
+    );
+  }
+
+  // --- Active / transcript screen ---
   return (
     <div className="h-dvh flex flex-col relative overflow-hidden" style={{ background: "var(--bg)" }}>
-      {/* Ambient floating orbs */}
       {isListening && (
         <div className="absolute inset-0 pointer-events-none z-0">
           <div className="ambient-orb ambient-orb-1" />
@@ -516,174 +387,117 @@ export default function LiveListen() {
 
       {/* Header */}
       <header className="flex items-center justify-between px-5 py-3 shrink-0 relative z-10" style={{ borderBottom: "1px solid var(--surface-border)" }}>
-        <h1 className="text-lg font-bold tracking-tight gradient-text">LiveListen</h1>
-        <div className="flex items-center gap-2">
-          {isListening && (
-            <div className="flex items-center gap-2 mr-2">
-              <span className="elapsed-timer stat-badge">{formatTime(elapsed)}</span>
-            </div>
-          )}
-          <button onClick={() => setVoiceEnabled(!voiceEnabled)}
-            className="p-2 rounded-xl transition-all"
-            style={{
-              background: voiceEnabled ? "rgba(139, 156, 247, 0.15)" : "rgba(139, 144, 160, 0.08)",
-              color: voiceEnabled ? "var(--accent)" : "var(--text-muted)",
-              border: voiceEnabled ? "1px solid rgba(139, 156, 247, 0.25)" : "1px solid transparent",
-            }}
+        <span style={{ fontFamily: "var(--font-serif)", fontSize: 16, fontWeight: 600, color: "var(--accent)" }}>LiveListen</span>
+        <div className="flex items-center gap-3">
+          {isListening && <span className="elapsed-timer stat-badge">{formatTime(elapsed)}</span>}
+          <button onClick={() => setVoiceEnabled(!voiceEnabled)} className="p-1.5 rounded-lg transition-all"
+            style={{ color: voiceEnabled ? "var(--accent)" : "var(--text-muted)" }}
             title={voiceEnabled ? "Voice on" : "Voice off"}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               {voiceEnabled ? (
-                <><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" /></>
+                <><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /></>
               ) : (
                 <><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" /><line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" /></>
               )}
             </svg>
           </button>
-          <button onClick={() => setShowSettings(true)}
-            className="p-2 rounded-xl transition-all"
-            style={{ background: "rgba(139, 144, 160, 0.08)", color: "var(--text-muted)", border: "1px solid transparent" }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" />
+          <button onClick={() => setShowSettings(true)} className="p-1.5 rounded-lg" style={{ color: "var(--text-muted)" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
           </button>
         </div>
       </header>
 
-      {/* Error */}
       {error && (
         <div className="mx-4 mt-2 px-4 py-2.5 rounded-xl text-sm shrink-0 flex items-center justify-between relative z-10"
-          style={{ background: "rgba(217, 112, 135, 0.1)", color: "var(--danger)", border: "1px solid rgba(217, 112, 135, 0.2)" }}>
+          style={{ background: "rgba(194, 112, 112, 0.1)", color: "var(--danger)", border: "1px solid rgba(194, 112, 112, 0.15)" }}>
           <span>{error}</span>
-          <button onClick={() => setError(null)} className="ml-3 opacity-70 hover:opacity-100 text-lg leading-none">&times;</button>
+          <button onClick={() => setError(null)} className="ml-3 opacity-70 hover:opacity-100">&times;</button>
         </div>
       )}
 
-      {/* Split screen */}
+      {/* Split panels */}
       <div className="flex-1 flex min-h-0 relative z-10">
         {/* LEFT: Translation */}
         <div className={`flex-1 flex flex-col min-h-0 ${isListening ? "panel-breathing" : ""}`}>
-          <div className="px-4 py-2 shrink-0 flex items-center justify-between" style={{ borderBottom: "1px solid var(--surface-border)" }}>
-            <span className="lang-pill">{targetLang.label}</span>
-            <div className="flex items-center gap-2">
-              {transWords > 0 && <span className="stat-badge">{transWords} words</span>}
-              {isListening && streamingTranslation && (
-                <div className="flex gap-1">
-                  <div className="w-1.5 h-1.5 rounded-full pulse-ring" style={{ background: "var(--accent)" }} />
-                  <div className="w-1.5 h-1.5 rounded-full pulse-ring" style={{ background: "var(--accent)", animationDelay: "0.15s" }} />
-                  <div className="w-1.5 h-1.5 rounded-full pulse-ring" style={{ background: "var(--accent)", animationDelay: "0.3s" }} />
-                </div>
-              )}
-            </div>
+          <div className="px-5 py-2.5 shrink-0 flex items-center justify-between" style={{ borderBottom: "1px solid var(--surface-border)" }}>
+            <span className="panel-label">{targetLang.label}</span>
+            {transWords > 0 && <span className="stat-badge">{transWords} words</span>}
           </div>
-          <div ref={leftPanelRef} className="flex-1 overflow-y-auto px-5 py-4" style={{ direction: targetIsRTL ? "rtl" : "ltr" }}>
-            {!isListening && !displayTranslation && (
-              <div className="flex flex-col items-center justify-center h-full gap-4" style={{ color: "var(--text-muted)" }}>
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.4 }}>
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                  <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
-                </svg>
-                <p className="text-sm text-center">Translation will appear here</p>
-              </div>
-            )}
-            {isListening && !displayTranslation && (
-              <div className="flex flex-col items-center justify-center h-full gap-3">
+          <div ref={leftPanelRef} className="flex-1 overflow-y-auto px-6 py-5" style={{ direction: targetIsRTL ? "rtl" : "ltr" }}>
+            {!displayTranslation && isListening && (
+              <div className="flex flex-col items-center justify-center h-full gap-4 fade-in">
                 <div className="visualizer-container">
                   {audioLevels.slice(0, 12).map((l, i) => (
                     <div key={i} className="viz-bar" style={{ height: `${Math.max(2, l * 36)}px` }} />
                   ))}
                 </div>
-                <p className="text-sm" style={{ color: "var(--accent)" }}>Waiting for speech...</p>
+                <p style={{ fontFamily: "var(--font-serif)", fontSize: 15, color: "var(--text-muted)" }}>Waiting for speech...</p>
               </div>
             )}
             {displayTranslation && (
-              <p className={`text-base leading-[1.9] font-medium ${streamingTranslation ? "streaming-cursor" : ""}`}
-                style={{ color: "var(--text)" }}>
+              <div className={`transcript-translation ${streamingTranslation ? "streaming-cursor" : ""}`}>
                 {displayTranslation}
-              </p>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Divider */}
         <div className="panel-divider shrink-0" />
 
         {/* RIGHT: Original */}
         <div className={`flex-1 flex flex-col min-h-0 ${isListening ? "panel-breathing" : ""}`}>
-          <div className="px-4 py-2 shrink-0 flex items-center justify-between" style={{ borderBottom: "1px solid var(--surface-border)" }}>
-            <span className="lang-pill">{sourceLang.label}</span>
-            <div className="flex items-center gap-2">
-              {origWords > 0 && <span className="stat-badge">{origWords} words</span>}
-              {isListening && currentPartial && (
-                <div className="flex items-end gap-1 h-3">
-                  {audioLevels.slice(0, 3).map((l, i) => (
-                    <div key={i} className="viz-bar" style={{ width: 2, height: `${Math.max(2, l * 12)}px` }} />
-                  ))}
-                </div>
-              )}
-            </div>
+          <div className="px-5 py-2.5 shrink-0 flex items-center justify-between" style={{ borderBottom: "1px solid var(--surface-border)" }}>
+            <span className="panel-label">{sourceLang.label}</span>
+            {origWords > 0 && <span className="stat-badge">{origWords} words</span>}
           </div>
-          <div ref={rightPanelRef} className="flex-1 overflow-y-auto px-5 py-4" style={{ direction: sourceIsRTL ? "rtl" : "ltr" }}>
-            {!isListening && !displayOriginal && (
-              <div className="flex flex-col items-center justify-center h-full" style={{ color: "var(--text-muted)" }}>
-                <p className="text-sm text-center">Original speech will appear here</p>
-              </div>
-            )}
-            {isListening && !displayOriginal && (
-              <div className="flex flex-col items-center justify-center h-full gap-3">
+          <div ref={rightPanelRef} className="flex-1 overflow-y-auto px-6 py-5" style={{ direction: sourceIsRTL ? "rtl" : "ltr" }}>
+            {!displayOriginal && isListening && (
+              <div className="flex flex-col items-center justify-center h-full gap-4 fade-in">
                 <div className="visualizer-container">
                   {audioLevels.map((l, i) => (
                     <div key={i} className="viz-bar" style={{ height: `${Math.max(2, l * 36)}px` }} />
                   ))}
                 </div>
-                <p className="text-sm" style={{ color: "var(--accent)" }}>Listening...</p>
+                <p style={{ fontFamily: "var(--font-serif)", fontSize: 15, color: "var(--text-muted)" }}>Listening...</p>
               </div>
             )}
             {displayOriginal && (
-              <p className="text-base leading-[1.9]" style={{ color: "var(--text-dim)" }}>
+              <div className={sourceIsRTL ? "transcript-original-rtl" : "transcript-original"}>
                 {fullOriginal && <span>{fullOriginal} </span>}
-                {currentPartial && <span style={{ color: "var(--accent)", opacity: 0.7 }}>{currentPartial}</span>}
-              </p>
+                {currentPartial && <span className="transcript-partial">{currentPartial}</span>}
+              </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Bottom Controls */}
+      {/* Bottom */}
       <div className="shrink-0 py-3 flex items-center justify-center gap-4 glass relative z-10" style={{ borderTop: "1px solid var(--surface-border)" }}>
         {isListening && (
-          <div className="flex items-center gap-1 h-8">
+          <div className="flex items-center gap-1 h-7">
             {audioLevels.slice(0, 8).map((l, i) => (
-              <div key={i} className="viz-bar" style={{ height: `${Math.max(2, l * 28)}px` }} />
+              <div key={i} className="viz-bar" style={{ height: `${Math.max(2, l * 24)}px` }} />
             ))}
           </div>
         )}
 
         <div className="relative">
-          {isListening && (
-            <>
-              <div className="mic-ripple" />
-              <div className="mic-ripple" />
-              <div className="mic-ripple" />
-            </>
-          )}
-          <button
-            onClick={isListening ? stopListening : startListening}
-            className={`relative w-14 h-14 rounded-full flex items-center justify-center transition-all ${isListening ? "" : "glow-btn"}`}
+          {isListening && (<><div className="mic-ripple" /><div className="mic-ripple" /><div className="mic-ripple" /></>)}
+          <button onClick={isListening ? stopListening : startListening}
+            className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-all ${isListening ? "" : "glow-btn"}`}
             style={{
               background: isListening ? "var(--danger)" : "var(--accent-gradient)",
-              border: "none",
-              cursor: "pointer",
-              boxShadow: isListening ? "0 0 24px rgba(217, 112, 135, 0.25)" : undefined,
+              border: "none", cursor: "pointer",
+              boxShadow: isListening ? "0 0 20px rgba(194, 112, 112, 0.2)" : undefined,
               zIndex: 1,
             }}>
             {isListening ? (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><rect x="6" y="6" width="12" height="12" rx="3" /></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><rect x="6" y="6" width="12" height="12" rx="3" /></svg>
             ) : (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" />
                 <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
               </svg>
             )}
@@ -691,62 +505,62 @@ export default function LiveListen() {
         </div>
 
         {isListening && (
-          <div className="flex items-center gap-1 h-8">
+          <div className="flex items-center gap-1 h-7">
             {audioLevels.slice(8, 16).map((l, i) => (
-              <div key={i} className="viz-bar" style={{ height: `${Math.max(2, l * 28)}px` }} />
+              <div key={i} className="viz-bar" style={{ height: `${Math.max(2, l * 24)}px` }} />
             ))}
           </div>
         )}
-
-        {!isListening && (
-          <p className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Tap to start</p>
-        )}
       </div>
 
-      {/* Settings Modal */}
-      {showSettings && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.7)" }} onClick={() => setShowSettings(false)}>
-          <div className="w-full max-w-lg rounded-t-3xl p-6 pb-10 glass" style={{ border: "1px solid var(--surface-border)", borderBottom: "none" }} onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold gradient-text">Settings</h2>
-              <button onClick={() => setShowSettings(false)} className="p-1.5 rounded-lg" style={{ color: "var(--text-dim)", background: "rgba(139, 144, 160, 0.08)" }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-              </button>
-            </div>
-            <div className="space-y-5">
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-dim)" }}>Source Language</label>
-                <select value={sourceLang.code} onChange={(e) => { const l = LANGUAGES.find((x) => x.code === e.target.value); if (l) setSourceLang(l); }} className="settings-select">
-                  {LANGUAGES.map((l) => (<option key={l.code} value={l.code}>{l.label}</option>))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-dim)" }}>Target Language</label>
-                <select value={targetLang.code} onChange={(e) => { const l = LANGUAGES.find((x) => x.code === e.target.value); if (l) setTargetLang(l); }} className="settings-select">
-                  {LANGUAGES.map((l) => (<option key={l.code} value={l.code}>{l.label}</option>))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-dim)" }}>Voice</label>
-                <select value={selectedVoiceURI} onChange={(e) => setSelectedVoiceURI(e.target.value)} className="settings-select">
-                  <option value="">Auto (best available)</option>
-                  {availableVoices.filter((v) => v.lang.startsWith(targetLang.speechCode.split("-")[0])).map((v) => (
-                    <option key={v.voiceURI} value={v.voiceURI}>{v.name}{v.localService ? "" : " (cloud)"}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-dim)" }}>Speech Engine</label>
-                <select value={useDeepgram ? "deepgram" : "browser"} onChange={(e) => setUseDeepgram(e.target.value === "deepgram")} className="settings-select">
-                  <option value="deepgram">Deepgram Nova-3 (faster, more accurate)</option>
-                  <option value="browser">Browser built-in (no API key needed)</option>
-                </select>
-              </div>
-            </div>
-            <p className="text-xs mt-6 text-center" style={{ color: "var(--text-muted)" }}>Changes take effect on next session</p>
-          </div>
-        </div>
-      )}
+      {renderSettings()}
     </div>
   );
+
+  function renderSettings() {
+    if (!showSettings) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.65)" }} onClick={() => setShowSettings(false)}>
+        <div className="w-full max-w-lg rounded-t-3xl p-6 pb-10 glass fade-in" style={{ border: "1px solid var(--surface-border)", borderBottom: "none" }} onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-6">
+            <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 600, color: "var(--text)" }}>Settings</h2>
+            <button onClick={() => setShowSettings(false)} className="p-1.5 rounded-lg" style={{ color: "var(--text-dim)" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+            </button>
+          </div>
+          <div className="space-y-5">
+            <div>
+              <label className="block text-xs font-medium mb-2 uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Source Language</label>
+              <select value={sourceLang.code} onChange={(e) => { const l = LANGUAGES.find((x) => x.code === e.target.value); if (l) setSourceLang(l); }} className="settings-select">
+                {LANGUAGES.map((l) => (<option key={l.code} value={l.code}>{l.label}</option>))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-2 uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Target Language</label>
+              <select value={targetLang.code} onChange={(e) => { const l = LANGUAGES.find((x) => x.code === e.target.value); if (l) setTargetLang(l); }} className="settings-select">
+                {LANGUAGES.map((l) => (<option key={l.code} value={l.code}>{l.label}</option>))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-2 uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Voice</label>
+              <select value={selectedVoiceURI} onChange={(e) => setSelectedVoiceURI(e.target.value)} className="settings-select">
+                <option value="">Auto</option>
+                {availableVoices.filter((v) => v.lang.startsWith(targetLang.speechCode.split("-")[0])).map((v) => (
+                  <option key={v.voiceURI} value={v.voiceURI}>{v.name}{v.localService ? "" : " (cloud)"}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-2 uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Speech Engine</label>
+              <select value={useDeepgram ? "deepgram" : "browser"} onChange={(e) => setUseDeepgram(e.target.value === "deepgram")} className="settings-select">
+                <option value="deepgram">Deepgram Nova-3</option>
+                <option value="browser">Browser built-in</option>
+              </select>
+            </div>
+          </div>
+          <p className="text-xs mt-6 text-center" style={{ color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>Changes apply on next session</p>
+        </div>
+      </div>
+    );
+  }
 }
