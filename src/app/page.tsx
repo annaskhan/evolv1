@@ -41,17 +41,34 @@ export default function LiveListen() {
   const [error, setError] = useState<string | null>(null);
   const [translating, setTranslating] = useState(false);
 
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>("");
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const feedRef = useRef<HTMLDivElement>(null);
   const lineIdRef = useRef(0);
   const pendingTextRef = useRef("");
   const isListeningRef = useRef(false);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep ref in sync
   useEffect(() => {
     isListeningRef.current = isListening;
   }, [isListening]);
+
+  // Load available voices
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        setAvailableVoices(voices);
+      }
+    };
+    loadVoices();
+    speechSynthesis.addEventListener("voiceschanged", loadVoices);
+    return () => speechSynthesis.removeEventListener("voiceschanged", loadVoices);
+  }, []);
 
   // Auto-scroll feed
   useEffect(() => {
@@ -60,16 +77,61 @@ export default function LiveListen() {
     }
   }, [lines, currentPartial]);
 
-  // Speak translation
+  // Pick the best voice for the target language
+  const getBestVoice = useCallback((): SpeechSynthesisVoice | null => {
+    const voices = speechSynthesis.getVoices();
+    if (voices.length === 0) return null;
+
+    // If user selected a specific voice, use it
+    if (selectedVoiceURI) {
+      const selected = voices.find((v) => v.voiceURI === selectedVoiceURI);
+      if (selected) return selected;
+    }
+
+    const langCode = targetLang.speechCode.split("-")[0]; // e.g. "en"
+
+    // Filter voices matching the target language
+    const langVoices = voices.filter((v) => v.lang.startsWith(langCode));
+    if (langVoices.length === 0) return null;
+
+    // Prefer natural/premium voices (they sound more human)
+    const premium = langVoices.find(
+      (v) =>
+        v.name.toLowerCase().includes("natural") ||
+        v.name.toLowerCase().includes("premium") ||
+        v.name.toLowerCase().includes("enhanced") ||
+        v.name.toLowerCase().includes("neural")
+    );
+    if (premium) return premium;
+
+    // Then prefer female voices (typically calmer for translation)
+    const female = langVoices.find(
+      (v) =>
+        v.name.toLowerCase().includes("female") ||
+        v.name.toLowerCase().includes("samantha") ||
+        v.name.toLowerCase().includes("karen") ||
+        v.name.toLowerCase().includes("fiona") ||
+        v.name.toLowerCase().includes("google") // Google voices tend to be smoother
+    );
+    if (female) return female;
+
+    return langVoices[0];
+  }, [targetLang.speechCode, selectedVoiceURI]);
+
+  // Speak translation — calmer, more natural
   const speak = useCallback(
     (text: string) => {
       if (!voiceEnabled || !text) return;
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = targetLang.speechCode;
-      utterance.rate = 0.95;
+      utterance.rate = 0.85; // Slower, calmer pace
+      utterance.pitch = 0.95; // Slightly lower pitch for subtlety
+      utterance.volume = 0.9;
+      const voice = getBestVoice();
+      if (voice) utterance.voice = voice;
       speechSynthesis.speak(utterance);
     },
-    [voiceEnabled, targetLang.speechCode]
+    [voiceEnabled, targetLang.speechCode, getBestVoice]
   );
 
   // Translate text via API
@@ -139,18 +201,26 @@ export default function LiveListen() {
           const finalText = result[0].transcript.trim();
           if (finalText) {
             pendingTextRef.current += (pendingTextRef.current ? " " : "") + finalText;
-            // Send for translation once we have enough text
-            const text = pendingTextRef.current;
-            pendingTextRef.current = "";
-            setCurrentPartial("");
-            translateText(text);
+            // Debounce: wait 1.5s of silence before sending for translation
+            // This accumulates more text for better context and fewer breaks
+            if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+            debounceTimerRef.current = setTimeout(() => {
+              if (pendingTextRef.current.trim()) {
+                const text = pendingTextRef.current;
+                pendingTextRef.current = "";
+                setCurrentPartial("");
+                translateText(text);
+              }
+            }, 1500);
           }
         } else {
           interimTranscript += result[0].transcript;
         }
       }
-      if (interimTranscript) {
-        setCurrentPartial(interimTranscript);
+      // Show pending + interim as the live partial
+      const partialDisplay = [pendingTextRef.current, interimTranscript].filter(Boolean).join(" ");
+      if (partialDisplay) {
+        setCurrentPartial(partialDisplay);
       }
     };
 
@@ -187,6 +257,10 @@ export default function LiveListen() {
   const stopListening = useCallback(() => {
     setIsListening(false);
     setCurrentPartial("");
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
     if (recognitionRef.current) {
       recognitionRef.current.onend = null;
       recognitionRef.current.abort();
@@ -481,6 +555,31 @@ export default function LiveListen() {
                       {l.label}
                     </option>
                   ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm mb-2" style={{ color: "var(--text-dim)" }}>
+                  Voice (for spoken translation)
+                </label>
+                <select
+                  value={selectedVoiceURI}
+                  onChange={(e) => setSelectedVoiceURI(e.target.value)}
+                  className="w-full p-3 rounded-lg text-base"
+                  style={{
+                    background: "var(--bg)",
+                    color: "var(--text)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                  }}
+                >
+                  <option value="">Auto (best available)</option>
+                  {availableVoices
+                    .filter((v) => v.lang.startsWith(targetLang.speechCode.split("-")[0]))
+                    .map((v) => (
+                      <option key={v.voiceURI} value={v.voiceURI}>
+                        {v.name} {v.localService ? "" : "(cloud)"}
+                      </option>
+                    ))}
                 </select>
               </div>
             </div>
