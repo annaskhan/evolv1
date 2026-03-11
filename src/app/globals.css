@@ -320,3 +320,52 @@ button:focus-visible, select:focus-visible {
   .transcript-translation { font-size: 22px; }
   .transcript-original { font-size: 20px; }
 }
+
+/* --- Reduced motion --- */
+@media (prefers-reduced-motion: reduce) {
+  .pulse-ring, .glow-btn, .mic-ripple, .ambient-orb,
+  .panel-breathing::after, .streaming-cursor::after { animation: none !important; }
+  .fade-in { animation: none !important; opacity: 1; }
+  .viz-bar { transition: none; }
+}
+
+/* --- High contrast --- */
+@media (prefers-contrast: high) {
+  :root {
+    --text: #ffffff;
+    --text-warm: #f0f0f0;
+    --text-dim: #cccccc;
+    --text-muted: #aaaaaa;
+    --accent: #e8c88a;
+    --surface-border: rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* --- Safe area insets for notched devices --- */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .h-dvh {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* --- Touch targets (48px minimum for WCAG) --- */
+button, [role="button"] {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* --- Screen reader only --- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}

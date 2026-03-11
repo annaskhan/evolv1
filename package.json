@@ -1,21 +1,32 @@
 {
   "name": "livelisten",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "1.1.0",
+  "description": "Real-time audio translation for conversations, meetings, and more",
+  "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "build:static": "next build",
+    "build:static": "STATIC_EXPORT=true next build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "generate:icons": "node scripts/generate-icons.js",
     "cap:init:ios": "npx cap add ios",
     "cap:init:android": "npx cap add android",
     "cap:sync": "npx cap sync",
     "cap:open:ios": "npx cap open ios",
     "cap:open:android": "npx cap open android",
-    "mobile:build": "npm run build:static && npx cap sync"
+    "mobile:build": "npm run build:static && npx cap sync",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
   },
-  "keywords": [],
+  "keywords": [
+    "translation",
+    "real-time",
+    "audio",
+    "pwa",
+    "transcription"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -35,6 +46,7 @@
     "postcss": "^8.5.8",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.2.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   }
 }

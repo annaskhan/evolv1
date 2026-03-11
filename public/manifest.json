@@ -1,13 +1,18 @@
 {
   "name": "LiveListen — Real-time Translation",
   "short_name": "LiveListen",
-  "description": "Real-time audio translation for conversations, meetings, and more",
+  "description": "Real-time audio translation for conversations, meetings, and more. Supports 10 languages with AI-powered transcription and translation.",
   "start_url": "/",
+  "id": "/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
   "background_color": "#0a0a0f",
   "theme_color": "#111318",
-  "categories": ["productivity", "utilities"],
+  "categories": ["productivity", "utilities", "education"],
+  "lang": "en",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "scope": "/",
   "icons": [
     {
       "src": "/icon-192.png",
@@ -31,6 +36,14 @@
       "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Start Listening",
+      "short_name": "Listen",
+      "url": "/",
+      "description": "Start a new translation session"
     }
   ]
 }

@@ -3,8 +3,9 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "LiveListen — Real-time Translation",
-  description: "Real-time audio translation for conversations, meetings, and more",
+  description: "Real-time audio translation for conversations, meetings, and more. Supports 10 languages with AI-powered transcription and translation.",
   manifest: "/manifest.json",
+  applicationName: "LiveListen",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -16,6 +17,9 @@ export const metadata: Metadata = {
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
   },
 };
 

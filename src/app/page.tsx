@@ -1,134 +1,18 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-
-interface LangOption {
-  code: string;
-  label: string;
-  speechCode: string;
-  deepgramCode: string;
-}
-
-const LANGUAGES: LangOption[] = [
-  { code: "Arabic", label: "Arabic", speechCode: "ar-SA", deepgramCode: "ar" },
-  { code: "English", label: "English", speechCode: "en-US", deepgramCode: "en-US" },
-  { code: "French", label: "Français", speechCode: "fr-FR", deepgramCode: "fr" },
-  { code: "Spanish", label: "Español", speechCode: "es-ES", deepgramCode: "es" },
-  { code: "Urdu", label: "Urdu", speechCode: "ur-PK", deepgramCode: "ur" },
-  { code: "Turkish", label: "Türkçe", speechCode: "tr-TR", deepgramCode: "tr" },
-  { code: "Malay", label: "Bahasa Melayu", speechCode: "ms-MY", deepgramCode: "ms" },
-  { code: "Indonesian", label: "Indonesian", speechCode: "id-ID", deepgramCode: "id" },
-  { code: "Bengali", label: "Bengali", speechCode: "bn-BD", deepgramCode: "bn" },
-  { code: "Somali", label: "Soomaali", speechCode: "so-SO", deepgramCode: "so" },
-];
-
-const isRTL = (code: string) => code === "Arabic" || code === "Urdu";
-
-// --- Saved sessions ---
-interface SavedSession {
-  id: string;
-  date: string;
-  sourceLang: string;
-  targetLang: string;
-  original: string;
-  translation: string;
-  duration: number;
-}
-
-const STORAGE_KEY = "livelisten_sessions";
-const ONBOARDING_KEY = "livelisten_onboarded";
-
-function loadSessions(): SavedSession[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch { return []; }
-}
-
-function saveSessions(sessions: SavedSession[]) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions)); } catch { /* quota exceeded */ }
-}
-
-function saveSession(session: SavedSession) {
-  const sessions = loadSessions();
-  sessions.unshift(session);
-  if (sessions.length > 50) sessions.length = 50;
-  saveSessions(sessions);
-}
-
-function deleteSession(id: string) {
-  const sessions = loadSessions().filter((s) => s.id !== id);
-  saveSessions(sessions);
-}
-
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) +
-    " at " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-}
-
-function formatTime(sec: number) {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-function wordCount(text: string) {
-  if (!text.trim()) return 0;
-  return text.trim().split(/\s+/).length;
-}
-
-function useAudioVisualizer(stream: MediaStream | null) {
-  const [levels, setLevels] = useState<number[]>(new Array(24).fill(0));
-  const animRef = useRef<number>(0);
-
-  useEffect(() => {
-    if (!stream) {
-      setLevels(new Array(24).fill(0));
-      if (animRef.current) cancelAnimationFrame(animRef.current);
-      return;
-    }
-    const ctx = new AudioContext();
-    const source = ctx.createMediaStreamSource(stream);
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 64;
-    analyser.smoothingTimeConstant = 0.75;
-    source.connect(analyser);
-    const data = new Uint8Array(analyser.frequencyBinCount);
-    let cancelled = false;
-
-    function tick() {
-      if (cancelled) return;
-      analyser.getByteFrequencyData(data);
-      const bars: number[] = [];
-      for (let i = 0; i < 24; i++) {
-        bars.push(data[Math.floor((i / 24) * data.length)] / 255);
-      }
-      setLevels(bars);
-      animRef.current = requestAnimationFrame(tick);
-    }
-    tick();
-    return () => { cancelled = true; if (animRef.current) cancelAnimationFrame(animRef.current); ctx.close(); };
-  }, [stream]);
-
-  return levels;
-}
-
-// --- Online/offline detection hook ---
-function useOnlineStatus() {
-  const [isOnline, setIsOnline] = useState(true);
-  useEffect(() => {
-    setIsOnline(navigator.onLine);
-    const goOnline = () => setIsOnline(true);
-    const goOffline = () => setIsOnline(false);
-    window.addEventListener("online", goOnline);
-    window.addEventListener("offline", goOffline);
-    return () => { window.removeEventListener("online", goOnline); window.removeEventListener("offline", goOffline); };
-  }, []);
-  return isOnline;
-}
+import { LANGUAGES, ONBOARDING_KEY, isRTL, API_BASE_URL, type LangOption } from "@/lib/constants";
+import { type SavedSession, loadSessions, saveSession, deleteSession as deleteSessionById, formatTime, wordCount } from "@/lib/sessions";
+import { useAudioVisualizer } from "@/hooks/useAudioVisualizer";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { useAppLifecycle } from "@/hooks/useAppLifecycle";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { OnboardingScreen } from "@/components/OnboardingScreen";
+import { SessionViewer } from "@/components/SessionViewer";
+import { SettingsModal } from "@/components/SettingsModal";
+import { HistoryModal } from "@/components/HistoryModal";
+import { ConsentBanner } from "@/components/ConsentBanner";
+import { PermissionDeniedScreen } from "@/components/PermissionGate";
 
 export default function LiveListen() {
   const [isListening, setIsListening] = useState(false);
@@ -150,8 +34,10 @@ export default function LiveListen() {
   const [viewingSession, setViewingSession] = useState<SavedSession | null>(null);
   const [sessions, setSessions] = useState<SavedSession[]>([]);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [micDenied, setMicDenied] = useState(false);
 
   const isOnline = useOnlineStatus();
+  const prefersReducedMotion = useReducedMotion();
 
   const leftPanelRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
@@ -166,14 +52,25 @@ export default function LiveListen() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
-  const settingsRef = useRef<HTMLDivElement>(null);
-  const historyRef = useRef<HTMLDivElement>(null);
 
   const audioLevels = useAudioVisualizer(micStream);
 
+  // App lifecycle: pause/resume mic tracks on background/foreground
+  useAppLifecycle({
+    onPause: () => {
+      if (isListeningRef.current && micStream) {
+        micStream.getTracks().forEach((t) => { t.enabled = false; });
+      }
+    },
+    onResume: () => {
+      if (isListeningRef.current && micStream) {
+        micStream.getTracks().forEach((t) => { t.enabled = true; });
+      }
+    },
+  });
+
   useEffect(() => { isListeningRef.current = isListening; }, [isListening]);
 
-  // Load saved sessions + check onboarding on mount
   useEffect(() => {
     setSessions(loadSessions());
     if (!localStorage.getItem(ONBOARDING_KEY)) {
@@ -181,7 +78,6 @@ export default function LiveListen() {
     }
   }, []);
 
-  // Register service worker for PWA
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
@@ -210,39 +106,6 @@ export default function LiveListen() {
     if (rightPanelRef.current) rightPanelRef.current.scrollTop = rightPanelRef.current.scrollHeight;
   }, [fullOriginal, fullTranslation, currentPartial, streamingTranslation]);
 
-  // Focus trap for modals
-  useEffect(() => {
-    if (!showSettings && !showHistory) return;
-    const ref = showSettings ? settingsRef : historyRef;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (showSettings) setShowSettings(false);
-        if (showHistory) setShowHistory(false);
-        return;
-      }
-      if (e.key !== "Tab") return;
-      const modal = ref.current;
-      if (!modal) return;
-      const focusable = modal.querySelectorAll<HTMLElement>('button, select, input, [tabindex]:not([tabindex="-1"])');
-      if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (e.shiftKey) {
-        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
-      } else {
-        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    // Focus first focusable element
-    const modal = ref.current;
-    if (modal) {
-      const first = modal.querySelector<HTMLElement>('button, select, input');
-      first?.focus();
-    }
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [showSettings, showHistory]);
-
   const getBestVoice = useCallback((): SpeechSynthesisVoice | null => {
     const voices = speechSynthesis.getVoices();
     if (!voices.length) return null;
@@ -268,7 +131,7 @@ export default function LiveListen() {
     if (isInterim) abortRef.current = controller;
 
     try {
-      const res = await fetch("/api/translate", {
+      const res = await fetch(`${API_BASE_URL}/api/translate`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: text.slice(0, 2000), sourceLang: sourceLang.code, targetLang: targetLang.code, stream: true }),
         signal: controller.signal,
@@ -278,7 +141,6 @@ export default function LiveListen() {
         try { const d = await res.json(); if (d.error) errorMsg = d.error; } catch { /* non-JSON response */ }
         if (res.status === 429) { errorMsg = "Rate limited — please wait a moment"; }
         setError(errorMsg);
-        // Retry on 5xx errors with exponential backoff (max 3 retries)
         if (res.status >= 500 && retryCount < 3) {
           const delay = Math.pow(2, retryCount) * 1000;
           setTimeout(() => translateText(text, isInterim, retryCount + 1), delay);
@@ -302,7 +164,6 @@ export default function LiveListen() {
       if (e instanceof DOMException && e.name === "AbortError") return;
       console.error(e);
       if (!isInterim) {
-        // Retry on network errors
         if (retryCount < 3) {
           const delay = Math.pow(2, retryCount) * 1000;
           setTimeout(() => translateText(text, isInterim, retryCount + 1), delay);
@@ -322,7 +183,7 @@ export default function LiveListen() {
     }
 
     try {
-      const tokenRes = await fetch("/api/deepgram-token");
+      const tokenRes = await fetch(`${API_BASE_URL}/api/deepgram-token`);
       const tokenData = await tokenRes.json();
       if (tokenData.error) { setError(tokenData.error + " — using browser recognition"); setUseDeepgram(false); return false; }
 
@@ -332,7 +193,8 @@ export default function LiveListen() {
       } catch (micErr) {
         const err = micErr as DOMException;
         if (err.name === "NotAllowedError") {
-          setError("Microphone access denied. Please allow microphone access in your browser settings.");
+          setMicDenied(true);
+          setError("Microphone access denied.");
         } else if (err.name === "NotFoundError") {
           setError("No microphone found. Please connect a microphone and try again.");
         } else {
@@ -340,6 +202,7 @@ export default function LiveListen() {
         }
         return false;
       }
+      setMicDenied(false);
       setMicStream(stream);
 
       const wsUrl = `wss://api.deepgram.com/v1/listen?language=${sourceLang.deepgramCode}&model=nova-3&punctuate=true&interim_results=true&utterance_end_ms=1000&vad_events=true&smart_format=true&encoding=linear16&sample_rate=16000`;
@@ -405,10 +268,12 @@ export default function LiveListen() {
     try {
       const s = await navigator.mediaDevices.getUserMedia({ audio: true });
       setMicStream(s);
+      setMicDenied(false);
     } catch (micErr) {
       const err = micErr as DOMException;
       if (err.name === "NotAllowedError") {
-        setError("Microphone access denied. Please allow microphone access in your browser settings.");
+        setMicDenied(true);
+        setError("Microphone access denied.");
       } else if (err.name === "NotFoundError") {
         setError("No microphone found. Please connect a microphone.");
       } else {
@@ -446,9 +311,10 @@ export default function LiveListen() {
       setError("You are offline. Translation requires an internet connection.");
       return;
     }
-    if (useDeepgram) { const ok = await startDeepgram(); if (!ok) startBrowserRecognition(); }
+    setMicDenied(false);
+    if (useDeepgram) { const ok = await startDeepgram(); if (!ok && !micDenied) startBrowserRecognition(); }
     else startBrowserRecognition();
-  }, [useDeepgram, startDeepgram, startBrowserRecognition]);
+  }, [useDeepgram, startDeepgram, startBrowserRecognition, micDenied]);
 
   const stopListening = useCallback(() => {
     setIsListening(false);
@@ -462,7 +328,6 @@ export default function LiveListen() {
     speechSynthesis.cancel();
     if (pendingTextRef.current.trim()) { const r = pendingTextRef.current; pendingTextRef.current = ""; translateText(r, false); }
 
-    // Auto-save session if there's content
     setTimeout(() => {
       setFullOriginal((orig) => {
         setFullTranslation((trans) => {
@@ -474,7 +339,7 @@ export default function LiveListen() {
               targetLang: targetLang.code,
               original: orig,
               translation: trans,
-              duration: elapsedRef.current ? elapsed : elapsed,
+              duration: elapsed,
             };
             saveSession(session);
             setSessions(loadSessions());
@@ -495,6 +360,11 @@ export default function LiveListen() {
     try { localStorage.setItem(ONBOARDING_KEY, "1"); } catch { /* */ }
   };
 
+  const handleDeleteSession = (id: string) => {
+    deleteSessionById(id);
+    setSessions(loadSessions());
+  };
+
   const sourceIsRTL = isRTL(sourceLang.code);
   const targetIsRTL = isRTL(targetLang.code);
   const displayOriginal = fullOriginal + (currentPartial ? (fullOriginal ? " " : "") + currentPartial : "");
@@ -502,17 +372,15 @@ export default function LiveListen() {
   const origWords = wordCount(displayOriginal);
   const transWords = wordCount(displayTranslation);
 
-  // --- Offline banner ---
   const offlineBanner = !isOnline && (
     <div className="offline-banner" role="alert" aria-live="assertive">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <line x1="1" y1="1" x2="23" y2="23" /><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" /><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" /><path d="M10.71 5.05A16 16 0 0 1 22.56 9" /><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" /><path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><line x1="12" y1="20" x2="12.01" y2="20" />
       </svg>
-      <span>You are offline</span>
+      <span>You are offline — translation requires a connection</span>
     </div>
   );
 
-  // --- Error banner ---
   const errorBanner = error && (
     <div className="error-banner" role="alert" aria-live="polite">
       <span>{error}</span>
@@ -520,60 +388,46 @@ export default function LiveListen() {
     </div>
   );
 
-  // --- Onboarding modal ---
+  // Settings icon SVG (reusable)
+  const settingsIcon = (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+
+  // Shared modals
+  const modals = (
+    <>
+      <SettingsModal show={showSettings} onClose={() => setShowSettings(false)} sourceLang={sourceLang} targetLang={targetLang} onSourceLangChange={setSourceLang} onTargetLangChange={setTargetLang} selectedVoiceURI={selectedVoiceURI} onVoiceChange={setSelectedVoiceURI} availableVoices={availableVoices} useDeepgram={useDeepgram} onEngineChange={setUseDeepgram} />
+      <HistoryModal show={showHistory} onClose={() => setShowHistory(false)} sessions={sessions} onViewSession={setViewingSession} onDeleteSession={handleDeleteSession} onSessionsChanged={() => setSessions(loadSessions())} />
+      <ConsentBanner />
+    </>
+  );
+
+  // --- Onboarding ---
   if (showOnboarding) {
+    return <OnboardingScreen onDismiss={dismissOnboarding} />;
+  }
+
+  // --- Viewing a past session ---
+  if (viewingSession) {
+    return <SessionViewer session={viewingSession} onBack={() => setViewingSession(null)} />;
+  }
+
+  // --- Mic denied screen ---
+  if (micDenied && !isListening && !displayOriginal && !displayTranslation) {
     return (
-      <div className="h-dvh flex flex-col items-center justify-center px-8" style={{ background: "var(--bg)" }}>
-        <div className="w-full max-w-sm fade-in text-center">
-          <div className="mb-6">
-            <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4" style={{ background: "var(--accent-gradient)" }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-semibold mb-2" style={{ fontFamily: "var(--font-serif)", color: "var(--text)" }}>
-              Welcome to LiveListen
-            </h1>
-            <p className="mb-6" style={{ fontFamily: "var(--font-serif)", fontSize: 15, color: "var(--text-dim)", lineHeight: 1.6 }}>
-              Real-time translation for conversations, meetings, speeches, and more.
-            </p>
-          </div>
-
-          <div className="space-y-4 mb-8 text-left">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center" style={{ background: "rgba(196, 168, 130, 0.1)" }}>
-                <span style={{ color: "var(--accent)", fontSize: 14, fontWeight: 600 }}>1</span>
-              </div>
-              <div>
-                <p style={{ fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 500, color: "var(--text)" }}>Allow microphone access</p>
-                <p style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--text-muted)" }}>LiveListen needs your microphone to hear and translate speech in real-time.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center" style={{ background: "rgba(196, 168, 130, 0.1)" }}>
-                <span style={{ color: "var(--accent)", fontSize: 14, fontWeight: 600 }}>2</span>
-              </div>
-              <div>
-                <p style={{ fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 500, color: "var(--text)" }}>Choose your languages</p>
-                <p style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--text-muted)" }}>Set the source and target languages in Settings before starting.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center" style={{ background: "rgba(196, 168, 130, 0.1)" }}>
-                <span style={{ color: "var(--accent)", fontSize: 14, fontWeight: 600 }}>3</span>
-              </div>
-              <div>
-                <p style={{ fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 500, color: "var(--text)" }}>Tap to start</p>
-                <p style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--text-muted)" }}>Tap the microphone button and the translation will appear as the speaker talks.</p>
-              </div>
-            </div>
-          </div>
-
-          <button onClick={dismissOnboarding} className="w-full py-3.5 rounded-2xl text-white font-medium" style={{ background: "var(--accent-gradient)", fontFamily: "var(--font-sans)", fontSize: 15 }}>
-            Get Started
+      <div className="h-dvh flex flex-col relative overflow-hidden" style={{ background: "var(--bg)" }}>
+        {offlineBanner}
+        <header className="flex items-center justify-between px-5 py-4 shrink-0 relative z-10">
+          <div />
+          <button onClick={() => setShowSettings(true)} className="p-2 rounded-xl" style={{ color: "var(--text-muted)" }} aria-label="Open settings">
+            {settingsIcon}
           </button>
-        </div>
+        </header>
+        <PermissionDeniedScreen onRetry={() => { setMicDenied(false); setError(null); startListening(); }} />
+        {modals}
       </div>
     );
   }
@@ -583,10 +437,12 @@ export default function LiveListen() {
     return (
       <div className="h-dvh flex flex-col relative overflow-hidden" style={{ background: "var(--bg)" }}>
         {offlineBanner}
-        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-          <div className="ambient-orb ambient-orb-1" />
-          <div className="ambient-orb ambient-orb-2" />
-        </div>
+        {!prefersReducedMotion && (
+          <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+            <div className="ambient-orb ambient-orb-1" />
+            <div className="ambient-orb ambient-orb-2" />
+          </div>
+        )}
 
         <header className="flex items-center justify-between px-5 py-4 shrink-0 relative z-10">
           {sessions.length > 0 ? (
@@ -598,10 +454,7 @@ export default function LiveListen() {
             </button>
           ) : <div />}
           <button onClick={() => setShowSettings(true)} className="p-2 rounded-xl" style={{ color: "var(--text-muted)" }} aria-label="Open settings">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
+            {settingsIcon}
           </button>
         </header>
 
@@ -627,7 +480,7 @@ export default function LiveListen() {
           <div className="relative">
             <button
               onClick={startListening}
-              className="relative w-20 h-20 rounded-full flex items-center justify-center glow-btn"
+              className={`relative w-20 h-20 rounded-full flex items-center justify-center ${prefersReducedMotion ? "" : "glow-btn"}`}
               style={{ background: "var(--accent-gradient)", border: "none", cursor: "pointer", zIndex: 1 }}
               aria-label="Start listening and translating">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -644,54 +497,7 @@ export default function LiveListen() {
         </div>
 
         {errorBanner && <div className="absolute bottom-6 left-4 right-4 z-20">{errorBanner}</div>}
-
-        {renderSettings()}
-        {renderHistory()}
-        {renderSessionViewer()}
-      </div>
-    );
-  }
-
-  // --- Viewing a past session ---
-  if (viewingSession) {
-    const vSourceRTL = isRTL(viewingSession.sourceLang);
-    const vTargetRTL = isRTL(viewingSession.targetLang);
-    return (
-      <div className="h-dvh flex flex-col" style={{ background: "var(--bg)" }}>
-        <header className="flex items-center justify-between px-5 py-3 shrink-0" style={{ borderBottom: "1px solid var(--surface-border)" }}>
-          <button onClick={() => setViewingSession(null)} className="flex items-center gap-2 p-1" style={{ color: "var(--accent)" }} aria-label="Go back to main screen">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
-            <span style={{ fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 500 }}>Back</span>
-          </button>
-          <div className="text-right">
-            <p style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--text-muted)" }}>{formatDate(viewingSession.date)}</p>
-            <p style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--text-muted)" }}>
-              {viewingSession.sourceLang} &rarr; {viewingSession.targetLang} &middot; {formatTime(viewingSession.duration)}
-            </p>
-          </div>
-        </header>
-
-        <div className="flex-1 flex flex-col lg:flex-row min-h-0">
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="px-5 py-2.5 shrink-0" style={{ borderBottom: "1px solid var(--surface-border)" }}>
-              <span className="panel-label">{viewingSession.targetLang}</span>
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 py-5" style={{ direction: vTargetRTL ? "rtl" : "ltr" }}>
-              <div className="transcript-translation">{viewingSession.translation || <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>No translation recorded</span>}</div>
-            </div>
-          </div>
-          <div className="panel-divider-responsive shrink-0" />
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="px-5 py-2.5 shrink-0" style={{ borderBottom: "1px solid var(--surface-border)" }}>
-              <span className="panel-label">{viewingSession.sourceLang}</span>
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 py-5" style={{ direction: vSourceRTL ? "rtl" : "ltr" }}>
-              <div className={vSourceRTL ? "transcript-original-rtl" : "transcript-original"}>{viewingSession.original || <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>No transcript recorded</span>}</div>
-            </div>
-          </div>
-        </div>
+        {modals}
       </div>
     );
   }
@@ -700,7 +506,7 @@ export default function LiveListen() {
   return (
     <div className="h-dvh flex flex-col relative overflow-hidden" style={{ background: "var(--bg)" }}>
       {offlineBanner}
-      {isListening && (
+      {isListening && !prefersReducedMotion && (
         <div className="absolute inset-0 pointer-events-none z-0" aria-hidden="true">
           <div className="ambient-orb ambient-orb-1" />
           <div className="ambient-orb ambient-orb-2" />
@@ -739,10 +545,8 @@ export default function LiveListen() {
 
       {errorBanner && <div className="mx-4 mt-2 shrink-0 relative z-10">{errorBanner}</div>}
 
-      {/* Split panels */}
       <div className="flex-1 flex flex-col lg:flex-row min-h-0 relative z-10">
-        {/* LEFT: Translation */}
-        <div className={`flex-1 flex flex-col min-h-0 ${isListening ? "panel-breathing" : ""}`}>
+        <div className={`flex-1 flex flex-col min-h-0 ${isListening && !prefersReducedMotion ? "panel-breathing" : ""}`}>
           <div className="px-5 py-2.5 shrink-0 flex items-center justify-between" style={{ borderBottom: "1px solid var(--surface-border)" }}>
             <span className="panel-label">{targetLang.label}</span>
             {transWords > 0 && <span className="stat-badge" aria-label={`${transWords} words translated`}>{transWords} words</span>}
@@ -768,8 +572,7 @@ export default function LiveListen() {
 
         <div className="panel-divider-responsive shrink-0" />
 
-        {/* RIGHT: Original */}
-        <div className={`flex-1 flex flex-col min-h-0 ${isListening ? "panel-breathing" : ""}`}>
+        <div className={`flex-1 flex flex-col min-h-0 ${isListening && !prefersReducedMotion ? "panel-breathing" : ""}`}>
           <div className="px-5 py-2.5 shrink-0 flex items-center justify-between" style={{ borderBottom: "1px solid var(--surface-border)" }}>
             <span className="panel-label">{sourceLang.label}</span>
             {origWords > 0 && <span className="stat-badge" aria-label={`${origWords} words recognized`}>{origWords} words</span>}
@@ -795,7 +598,6 @@ export default function LiveListen() {
         </div>
       </div>
 
-      {/* Bottom */}
       <div className="shrink-0 py-3 flex items-center justify-center gap-4 glass relative z-10" style={{ borderTop: "1px solid var(--surface-border)" }}>
         {isListening && (
           <div className="flex items-center gap-1 h-7" aria-hidden="true">
@@ -806,9 +608,9 @@ export default function LiveListen() {
         )}
 
         <div className="relative">
-          {isListening && (<><div className="mic-ripple" aria-hidden="true" /><div className="mic-ripple" aria-hidden="true" /><div className="mic-ripple" aria-hidden="true" /></>)}
+          {isListening && !prefersReducedMotion && (<><div className="mic-ripple" aria-hidden="true" /><div className="mic-ripple" aria-hidden="true" /><div className="mic-ripple" aria-hidden="true" /></>)}
           <button onClick={isListening ? stopListening : startListening}
-            className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-all ${isListening ? "" : "glow-btn"}`}
+            className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-all ${isListening || prefersReducedMotion ? "" : "glow-btn"}`}
             style={{
               background: isListening ? "var(--danger)" : "var(--accent-gradient)",
               border: "none", cursor: "pointer",
@@ -836,115 +638,7 @@ export default function LiveListen() {
         )}
       </div>
 
-      {renderSettings()}
-      {renderHistory()}
+      {modals}
     </div>
   );
-
-  function renderHistory() {
-    if (!showHistory) return null;
-    return (
-      <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.65)" }} onClick={() => setShowHistory(false)} role="dialog" aria-modal="true" aria-label="Session history">
-        <div ref={historyRef} className="w-full max-w-lg rounded-t-3xl p-6 pb-10 glass fade-in" style={{ border: "1px solid var(--surface-border)", borderBottom: "none", maxHeight: "75vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between mb-4 shrink-0">
-            <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 600, color: "var(--text)" }}>Session History</h2>
-            <button onClick={() => setShowHistory(false)} className="p-1.5 rounded-lg" style={{ color: "var(--text-dim)" }} aria-label="Close history">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto space-y-2">
-            {sessions.length === 0 && (
-              <p style={{ fontFamily: "var(--font-serif)", fontSize: 14, color: "var(--text-muted)", textAlign: "center", padding: "2rem 0" }}>
-                No saved sessions yet. Sessions are saved automatically when you stop listening.
-              </p>
-            )}
-            {sessions.map((s) => (
-              <div key={s.id} className="flex items-center justify-between rounded-xl p-3 transition-colors" style={{ background: "rgba(196, 168, 130, 0.04)", border: "1px solid var(--surface-border)", cursor: "pointer" }}
-                onClick={() => { setShowHistory(false); setViewingSession(s); }}
-                role="button" tabIndex={0}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowHistory(false); setViewingSession(s); } }}
-                aria-label={`Session: ${s.sourceLang} to ${s.targetLang}, ${formatDate(s.date)}`}>
-                <div className="flex-1 min-w-0">
-                  <p style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 500, color: "var(--text-dim)", marginBottom: 2 }}>
-                    {formatDate(s.date)}
-                  </p>
-                  <p style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--text-muted)" }}>
-                    {s.sourceLang} &rarr; {s.targetLang} &middot; {formatTime(s.duration)} &middot; {wordCount(s.translation)} words
-                  </p>
-                  {s.translation && (
-                    <p className="mt-1 truncate" style={{ fontFamily: "var(--font-serif)", fontSize: 13, color: "var(--text-dim)", maxWidth: "100%" }}>
-                      {s.translation.slice(0, 80)}{s.translation.length > 80 ? "..." : ""}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 ml-3 shrink-0">
-                  <button className="p-1.5 rounded-lg transition-colors" style={{ color: "var(--text-muted)" }}
-                    onClick={(e) => { e.stopPropagation(); deleteSession(s.id); setSessions(loadSessions()); }}
-                    aria-label={`Delete session from ${formatDate(s.date)}`}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    </svg>
-                  </button>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  function renderSessionViewer() {
-    return null;
-  }
-
-  function renderSettings() {
-    if (!showSettings) return null;
-    return (
-      <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.65)" }} onClick={() => setShowSettings(false)} role="dialog" aria-modal="true" aria-label="Settings">
-        <div ref={settingsRef} className="w-full max-w-lg rounded-t-3xl p-6 pb-10 glass fade-in" style={{ border: "1px solid var(--surface-border)", borderBottom: "none" }} onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between mb-6">
-            <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 600, color: "var(--text)" }}>Settings</h2>
-            <button onClick={() => setShowSettings(false)} className="p-1.5 rounded-lg" style={{ color: "var(--text-dim)" }} aria-label="Close settings">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-            </button>
-          </div>
-          <div className="space-y-5">
-            <div>
-              <label htmlFor="source-lang" className="block text-xs font-medium mb-2 uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Source Language</label>
-              <select id="source-lang" value={sourceLang.code} onChange={(e) => { const l = LANGUAGES.find((x) => x.code === e.target.value); if (l) setSourceLang(l); }} className="settings-select">
-                {LANGUAGES.map((l) => (<option key={l.code} value={l.code}>{l.label}</option>))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="target-lang" className="block text-xs font-medium mb-2 uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Target Language</label>
-              <select id="target-lang" value={targetLang.code} onChange={(e) => { const l = LANGUAGES.find((x) => x.code === e.target.value); if (l) setTargetLang(l); }} className="settings-select">
-                {LANGUAGES.map((l) => (<option key={l.code} value={l.code}>{l.label}</option>))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="voice-select" className="block text-xs font-medium mb-2 uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Voice</label>
-              <select id="voice-select" value={selectedVoiceURI} onChange={(e) => setSelectedVoiceURI(e.target.value)} className="settings-select">
-                <option value="">Auto</option>
-                {availableVoices.filter((v) => v.lang.startsWith(targetLang.speechCode.split("-")[0])).map((v) => (
-                  <option key={v.voiceURI} value={v.voiceURI}>{v.name}{v.localService ? "" : " (cloud)"}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="engine-select" className="block text-xs font-medium mb-2 uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Speech Engine</label>
-              <select id="engine-select" value={useDeepgram ? "deepgram" : "browser"} onChange={(e) => setUseDeepgram(e.target.value === "deepgram")} className="settings-select">
-                <option value="deepgram">Deepgram Nova-3</option>
-                <option value="browser">Browser built-in</option>
-              </select>
-            </div>
-          </div>
-          <p className="text-xs mt-6 text-center" style={{ color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>Changes apply on next session</p>
-        </div>
-      </div>
-    );
-  }
 }

@@ -1,10 +1,12 @@
-const CACHE_NAME = 'livelisten-v1';
+const CACHE_NAME = 'livelisten-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',
   '/icon.svg',
+  '/favicon.png',
+  '/apple-touch-icon.png',
 ];
 
 // Install — pre-cache static assets
@@ -25,7 +27,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch — network-first for API/dynamic, cache-first for static
+// Fetch — network-first for API/dynamic, stale-while-revalidate for static
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
@@ -36,20 +38,43 @@ self.addEventListener('fetch', (event) => {
   // Skip cross-origin requests (fonts, external resources)
   if (url.origin !== self.location.origin) return;
 
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const fetchPromise = fetch(event.request)
+  // For navigation requests, use network-first with offline fallback
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
         .then((response) => {
-          // Cache successful responses
           if (response.ok) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
           return response;
         })
-        .catch(() => cached); // Fall back to cache on network failure
+        .catch(() => caches.match('/') || new Response('Offline', { status: 503 }))
+    );
+    return;
+  }
+
+  // For static assets, use stale-while-revalidate
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      const fetchPromise = fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => cached);
 
       return cached || fetchPromise;
     })
   );
+});
+
+// Handle messages from the app
+self.addEventListener('message', (event) => {
+  if (event.data === 'skipWaiting') {
+    self.skipWaiting();
+  }
 });
