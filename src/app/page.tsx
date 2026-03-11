@@ -536,7 +536,7 @@ export default function LiveListen() {
               Welcome to LiveListen
             </h1>
             <p className="mb-6" style={{ fontFamily: "var(--font-serif)", fontSize: 15, color: "var(--text-dim)", lineHeight: 1.6 }}>
-              Real-time translation for sermons, speeches, and conversations.
+              Real-time translation for conversations, meetings, speeches, and more.
             </p>
           </div>
 
@@ -610,7 +610,7 @@ export default function LiveListen() {
             LiveListen
           </h1>
           <p className="text-center mb-1" style={{ fontFamily: "var(--font-serif)", fontSize: 17, color: "var(--text-dim)", maxWidth: 340, lineHeight: 1.6 }}>
-            Real-time translation for sermons, speeches, and conversations.
+            Real-time translation for conversations, meetings, speeches, and more.
           </p>
           <p className="text-center mb-10" style={{ fontFamily: "var(--font-serif)", fontSize: 15, color: "var(--text-muted)", maxWidth: 300, lineHeight: 1.5 }}>
             Tap below to begin listening. The translation will appear as the speaker talks.
