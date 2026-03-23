@@ -1,10 +1,9 @@
-const CACHE_NAME = 'livelisten-v2';
+const CACHE_NAME = 'evolv-v1';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',
-  '/icon.svg',
   '/favicon.png',
   '/apple-touch-icon.png',
 ];
@@ -31,11 +30,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Skip non-GET requests and API routes (translation needs live network)
+  // Skip non-GET requests and API routes
   if (event.request.method !== 'GET') return;
   if (url.pathname.startsWith('/api/')) return;
 
-  // Skip cross-origin requests (fonts, external resources)
+  // Skip cross-origin requests
   if (url.origin !== self.location.origin) return;
 
   // For navigation requests, use network-first with offline fallback

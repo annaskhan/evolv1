@@ -1,26 +1,49 @@
-export interface LangOption {
-  code: string;
-  label: string;
-  speechCode: string;
-  deepgramCode: string;
-}
+// ===== Evolv Constants =====
 
-export const LANGUAGES: LangOption[] = [
-  { code: "Arabic", label: "Arabic", speechCode: "ar-SA", deepgramCode: "ar" },
-  { code: "English", label: "English", speechCode: "en-US", deepgramCode: "en-US" },
-  { code: "French", label: "Français", speechCode: "fr-FR", deepgramCode: "fr" },
-  { code: "Spanish", label: "Español", speechCode: "es-ES", deepgramCode: "es" },
-  { code: "Urdu", label: "Urdu", speechCode: "ur-PK", deepgramCode: "ur" },
-  { code: "Turkish", label: "Türkçe", speechCode: "tr-TR", deepgramCode: "tr" },
-  { code: "Malay", label: "Bahasa Melayu", speechCode: "ms-MY", deepgramCode: "ms" },
-  { code: "Indonesian", label: "Indonesian", speechCode: "id-ID", deepgramCode: "id" },
-  { code: "Bengali", label: "Bengali", speechCode: "bn-BD", deepgramCode: "bn" },
-  { code: "Somali", label: "Soomaali", speechCode: "so-SO", deepgramCode: "so" },
-];
+export const APP_NAME = "Evolv";
+export const APP_TAGLINE = "Small steps, lasting change";
 
-export const isRTL = (code: string) => code === "Arabic" || code === "Urdu";
+// Storage keys
+export const STORAGE_KEYS = {
+  THEME: "evolv_theme",
+  ONBOARDED: "evolv_onboarded",
+  USER_NAME: "evolv_user_name",
+  FOCUS_AREAS: "evolv_focus_areas",
+  GOALS: "evolv_goals",
+  JOURNAL: "evolv_journal",
+  SETTINGS: "evolv_settings",
+} as const;
 
-export const STORAGE_KEY = "livelisten_sessions";
-export const ONBOARDING_KEY = "livelisten_onboarded";
-export const CONSENT_KEY = "livelisten_consent";
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+// Focus areas for onboarding and goals
+export const FOCUS_AREAS = [
+  { id: "spiritual", label: "Spiritual Growth", icon: "pray" },
+  { id: "health", label: "Health & Fitness", icon: "heart" },
+  { id: "mindfulness", label: "Mindfulness", icon: "brain" },
+  { id: "career", label: "Career & Skills", icon: "briefcase" },
+  { id: "relationships", label: "Relationships", icon: "users" },
+  { id: "education", label: "Education", icon: "book" },
+  { id: "habits", label: "Daily Habits", icon: "check-circle" },
+  { id: "finance", label: "Financial Goals", icon: "wallet" },
+] as const;
+
+export type FocusAreaId = (typeof FOCUS_AREAS)[number]["id"];
+
+// Navigation items
+export const NAV_ITEMS = [
+  { id: "home", label: "Home", href: "/", icon: "home" },
+  { id: "goals", label: "Goals", href: "/goals", icon: "target" },
+  { id: "journal", label: "Journal", href: "/journal", icon: "pen" },
+  { id: "progress", label: "Progress", href: "/progress", icon: "chart" },
+] as const;
+
+// Theme options
+export type Theme = "light" | "dark" | "system";
+
+// Quote of the day categories (for later use)
+export const QUOTE_CATEGORIES = [
+  "motivation",
+  "gratitude",
+  "growth",
+  "resilience",
+  "faith",
+] as const;

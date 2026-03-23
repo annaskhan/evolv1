@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: "app.livelisten",
-  appName: "LiveListen",
+  appId: "app.evolv",
+  appName: "Evolv",
   webDir: "out",
   server: {
     androidScheme: "https",
@@ -11,7 +11,7 @@ const config: CapacitorConfig = {
     SplashScreen: {
       launchAutoHide: true,
       launchShowDuration: 2000,
-      backgroundColor: "#111318",
+      backgroundColor: "#faf8f5",
       showSpinner: false,
       androidScaleType: "CENTER_CROP",
       splashImmersive: true,
@@ -25,7 +25,7 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: "automatic",
     allowsLinkPreview: false,
-    scrollEnabled: false,
+    scrollEnabled: true,
   },
 };
 

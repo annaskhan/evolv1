@@ -1,12 +1,12 @@
-# LiveListen - Evolv
+# Evolv
 
-Real-time audio translation app supporting 10 languages with AI-powered transcription and translation. Built as a PWA with native mobile support via Capacitor.
+Personal growth companion app — track goals, journal your journey, and watch yourself grow. Built as a PWA with native mobile support via Capacitor.
 
 ## Tech Stack
 
 - **Framework:** Next.js 16 (App Router) with React 19, TypeScript (strict mode)
 - **Styling:** Tailwind CSS 4 with PostCSS
-- **AI/Translation:** Anthropic Claude SDK (Haiku 4.5) for translation, Deepgram Nova-3 for speech recognition
+- **AI:** Anthropic Claude SDK (Haiku 4.5) — used for AI coaching/insights (planned)
 - **Mobile:** Capacitor 8 (iOS & Android)
 - **Testing:** Vitest
 - **Package Manager:** npm
@@ -30,50 +30,52 @@ npm run cap:sync      # Sync Capacitor
 ```
 src/
 ├── app/                      # Next.js App Router pages & API routes
-│   ├── page.tsx              # Main application
-│   ├── layout.tsx            # Root layout
-│   ├── globals.css           # Global styles & animations
-│   ├── api/translate/        # Claude translation endpoint (streaming)
-│   ├── api/deepgram-token/   # Deepgram token endpoint
-│   ├── privacy/              # Privacy policy
-│   └── terms/                # Terms of service
-├── components/               # React components (ConsentBanner, OnboardingScreen, PermissionGate, SettingsModal, SessionViewer, HistoryModal)
-├── hooks/                    # Custom hooks (useAppLifecycle, useAudioVisualizer, useOnlineStatus, useReducedMotion)
-├── lib/                      # Utilities (constants.ts for languages, sessions.ts for localStorage)
-├── __tests__/                # Vitest tests
-└── speech.d.ts               # Web Speech API types
+│   ├── page.tsx              # Home / Dashboard
+│   ├── layout.tsx            # Root layout with AppShell
+│   ├── globals.css           # Theme system, animations, component styles
+│   ├── goals/page.tsx        # Goals management
+│   ├── journal/page.tsx      # Journal entries
+│   ├── progress/page.tsx     # Progress dashboard
+│   ├── settings/page.tsx     # App settings
+│   ├── api/translate/        # Claude translation endpoint (legacy)
+│   └── api/deepgram-token/   # Deepgram token endpoint (legacy)
+├── components/
+│   ├── AppShell.tsx           # App wrapper (onboarding gate + nav)
+│   ├── BottomNav.tsx          # Bottom tab navigation
+│   ├── ThemeProvider.tsx      # Light/dark/system theme context
+│   └── Onboarding.tsx         # Multi-step onboarding flow
+├── lib/
+│   ├── constants.ts           # App constants, focus areas, nav items
+│   └── storage.ts             # localStorage helpers
+├── __tests__/                 # Vitest tests
+└── speech.d.ts                # Web Speech API types
 public/
-├── manifest.json             # PWA manifest
-├── sw.js                     # Service worker
-└── *.png                     # App icons
+├── manifest.json              # PWA manifest
+├── sw.js                      # Service worker
+└── *.png                      # App icons
 ```
 
 ## Environment Variables
 
 Required in `.env.local` (see `.env.example`):
-- `ANTHROPIC_API_KEY` - Claude API key for translation
-- `DEEPGRAM_API_KEY` - Deepgram API key for speech recognition
+- `ANTHROPIC_API_KEY` - Claude API key for AI features
 
 Optional:
-- `NEXT_PUBLIC_API_BASE_URL` - API base URL (defaults to empty)
 - `STATIC_EXPORT` - Set to `true` for Capacitor mobile builds
 
 ## Key Architecture Decisions
 
-- **Translation API** (`src/app/api/translate/route.ts`): Streaming responses, rate-limited (60 req/min per IP), max 2000 chars, context-aware with prior translations for coherence. Special handling for Islamic/religious terminology.
-- **Speech Recognition**: Deepgram WebSocket with utterance end detection (2000ms). Falls back gracefully on connection issues.
-- **Session Storage**: localStorage-based, max 50 sessions, exportable as text.
-- **PWA**: Service worker uses network-first for API routes, stale-while-revalidate for static assets.
-- **Security**: Strong CSP headers, X-Frame-Options DENY, input validation, prompt injection prevention.
-
-## Supported Languages
-
-Arabic (RTL), English, French, Spanish, Urdu (RTL), Turkish, Malay, Indonesian, Bengali, Somali
+- **Theme System**: Light/dark/system modes via CSS custom properties and `data-theme` attribute on `<html>`. ThemeProvider context.
+- **Onboarding**: Multi-step flow (welcome → name → focus areas → ready). Stores state in localStorage. Gates the main app.
+- **Navigation**: Bottom tab bar with 4 items (Home, Goals, Journal, Progress). Settings accessible from home page header.
+- **Storage**: localStorage-based via `src/lib/storage.ts`. Keys prefixed with `evolv_`.
+- **PWA**: Service worker with network-first for navigation, stale-while-revalidate for static assets.
+- **Security**: Strong CSP headers, X-Frame-Options DENY.
 
 ## Code Conventions
 
 - Path alias: `@/*` maps to `./src/*`
 - TypeScript strict mode enabled
-- Dark theme with warm accent colors (#c4a882)
+- Calming green/earth tone theme (primary: #2d6a4f)
 - Mobile-first responsive design
-- Accessibility: reduced motion support, ARIA labels, RTL support
+- Accessibility: reduced motion support, ARIA labels, 44px touch targets, focus-visible styles

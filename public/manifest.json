@@ -1,14 +1,14 @@
 {
-  "name": "LiveListen — Real-time Translation",
-  "short_name": "LiveListen",
-  "description": "Real-time audio translation for conversations, meetings, and more. Supports 10 languages with AI-powered transcription and translation.",
+  "name": "Evolv — Small steps, lasting change",
+  "short_name": "Evolv",
+  "description": "Track your goals, journal your journey, and watch yourself grow. A personal growth companion.",
   "start_url": "/",
   "id": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#0a0a0f",
-  "theme_color": "#111318",
-  "categories": ["productivity", "utilities", "education"],
+  "background_color": "#faf8f5",
+  "theme_color": "#2d6a4f",
+  "categories": ["lifestyle", "health", "productivity"],
   "lang": "en",
   "dir": "ltr",
   "prefer_related_applications": false,
@@ -31,19 +31,26 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
-    },
-    {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
     }
   ],
   "shortcuts": [
     {
-      "name": "Start Listening",
-      "short_name": "Listen",
-      "url": "/",
-      "description": "Start a new translation session"
+      "name": "My Goals",
+      "short_name": "Goals",
+      "url": "/goals",
+      "description": "View and manage your goals"
+    },
+    {
+      "name": "Journal",
+      "short_name": "Journal",
+      "url": "/journal",
+      "description": "Write a journal entry"
+    },
+    {
+      "name": "Progress",
+      "short_name": "Progress",
+      "url": "/progress",
+      "description": "View your progress"
     }
   ]
 }
