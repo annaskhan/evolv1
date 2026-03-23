@@ -38,50 +38,49 @@ function GrowthAnimation() {
   }, []);
 
   return (
-    <div style={{ width: 180, height: 180, position: "relative", margin: "0 auto 16px" }}>
-      <svg width="180" height="180" viewBox="0 0 180 180">
+    <div style={{ width: 260, height: 280, position: "relative", margin: "0 auto 16px" }}>
+      <svg width="260" height="280" viewBox="0 0 260 280">
         {/* Ground/soil shadow */}
-        <ellipse cx="90" cy="152" rx="55" ry="10" fill="var(--secondary)" opacity="0.15">
-          <animate attributeName="rx" values="25;55" dur="0.8s" fill="freeze" />
+        <ellipse cx="130" cy="248" rx="70" ry="12" fill="var(--secondary)" opacity="0.15">
+          <animate attributeName="rx" values="30;70" dur="0.8s" fill="freeze" />
         </ellipse>
 
         {/* Pot */}
         <g opacity={phase >= 1 ? 1 : 0} style={{ transition: "opacity 0.5s" }}>
-          {/* Pot body — tapered terracotta */}
-          <path d="M52 110 L58 150 L122 150 L128 110 Z" fill="var(--accent)" stroke="none">
-            {phase === 1 && <animate attributeName="d" values="M82 140 L84 150 L96 150 L98 140 Z;M52 110 L58 150 L122 150 L128 110 Z" dur="0.6s" fill="freeze" />}
+          {/* Pot body */}
+          <path d="M72 185 L82 242 L178 242 L188 185 Z" fill="var(--accent)" stroke="none">
+            {phase === 1 && <animate attributeName="d" values="M120 230 L122 242 L138 242 L140 230 Z;M72 185 L82 242 L178 242 L188 185 Z" dur="0.6s" fill="freeze" />}
           </path>
           {/* Pot rim */}
-          <rect x="46" y="104" width="88" height="10" rx="4" fill="var(--accent)" opacity="0.85">
-            {phase === 1 && <animate attributeName="width" values="16;88" dur="0.6s" fill="freeze" />}
-            {phase === 1 && <animate attributeName="x" values="82;46" dur="0.6s" fill="freeze" />}
+          <rect x="64" y="176" width="132" height="14" rx="5" fill="var(--accent)" opacity="0.85">
+            {phase === 1 && <animate attributeName="width" values="20;132" dur="0.6s" fill="freeze" />}
+            {phase === 1 && <animate attributeName="x" values="120;64" dur="0.6s" fill="freeze" />}
           </rect>
           {/* Pot highlight */}
-          <path d="M60 115 L64 145 L72 145 L68 115 Z" fill="rgba(255,255,255,0.12)" opacity={phase >= 1 ? 1 : 0}>
+          <path d="M84 192 L90 236 L102 236 L96 192 Z" fill="rgba(255,255,255,0.12)" opacity={phase >= 1 ? 1 : 0}>
             {phase === 1 && <animate attributeName="opacity" values="0;1" dur="0.4s" fill="freeze" begin="0.4s" />}
           </path>
           {/* Soil in pot */}
-          <ellipse cx="90" cy="112" rx="34" ry="6" fill="#8B6914" opacity="0.6">
-            {phase === 1 && <animate attributeName="rx" values="0;34" dur="0.5s" fill="freeze" begin="0.3s" />}
+          <ellipse cx="130" cy="184" rx="50" ry="8" fill="#8B6914" opacity="0.6">
+            {phase === 1 && <animate attributeName="rx" values="0;50" dur="0.5s" fill="freeze" begin="0.3s" />}
           </ellipse>
-          {/* Soil texture dots */}
-          <circle cx="78" cy="112" r="2" fill="#6B4F10" opacity={phase >= 1 ? 0.4 : 0} />
-          <circle cx="98" cy="111" r="1.5" fill="#6B4F10" opacity={phase >= 1 ? 0.3 : 0} />
-          <circle cx="86" cy="114" r="1" fill="#6B4F10" opacity={phase >= 1 ? 0.35 : 0} />
+          {/* Soil texture */}
+          <circle cx="112" cy="184" r="2.5" fill="#6B4F10" opacity={phase >= 1 ? 0.4 : 0} />
+          <circle cx="142" cy="183" r="2" fill="#6B4F10" opacity={phase >= 1 ? 0.3 : 0} />
+          <circle cx="124" cy="186" r="1.5" fill="#6B4F10" opacity={phase >= 1 ? 0.35 : 0} />
         </g>
 
         {/* Seed (phase 0) */}
         {phase === 0 && (
           <g>
-            <ellipse cx="90" cy="120" rx="9" ry="12" fill="var(--secondary)">
-              <animate attributeName="cy" values="50;120" dur="0.7s" fill="freeze" />
+            <ellipse cx="130" cy="195" rx="11" ry="15" fill="var(--secondary)">
+              <animate attributeName="cy" values="80;195" dur="0.7s" fill="freeze" />
               <animate attributeName="opacity" values="0;1" dur="0.4s" fill="freeze" />
             </ellipse>
-            {/* Seed ridge line */}
-            <path d="M88 112 Q90 108 92 112" fill="none" stroke="var(--secondary-light)" strokeWidth="1.5" opacity="0">
+            <path d="M127 184 Q130 178 133 184" fill="none" stroke="var(--secondary-light)" strokeWidth="1.5" opacity="0">
               <animate attributeName="opacity" values="0;0.8" dur="0.3s" fill="freeze" begin="0.4s" />
             </path>
-            <path d="M86 118 Q90 128 94 118" fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="1" opacity="0">
+            <path d="M125 194 Q130 206 135 194" fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="1" opacity="0">
               <animate attributeName="opacity" values="0;1" dur="0.3s" fill="freeze" begin="0.5s" />
             </path>
           </g>
@@ -92,34 +91,32 @@ function GrowthAnimation() {
           <g>
             {/* Watering can */}
             <g opacity={phase === 2 ? 1 : 0} style={{ transition: "opacity 0.6s" }}>
-              <rect x="112" y="44" width="30" height="20" rx="4" fill="var(--primary)" opacity="0.75">
-                <animate attributeName="x" values="160;112" dur="0.5s" fill="freeze" />
+              <rect x="160" y="70" width="40" height="26" rx="5" fill="var(--primary)" opacity="0.75">
+                <animate attributeName="x" values="240;160" dur="0.5s" fill="freeze" />
               </rect>
-              {/* Handle */}
-              <path d="M128 44 Q132 34 136 44" fill="none" stroke="var(--primary)" strokeWidth="2.5" opacity="0.6">
-                <animate attributeName="d" values="M170 44 Q174 34 178 44;M128 44 Q132 34 136 44" dur="0.5s" fill="freeze" />
+              <path d="M180 70 Q185 56 190 70" fill="none" stroke="var(--primary)" strokeWidth="3" opacity="0.6">
+                <animate attributeName="d" values="M260 70 Q265 56 270 70;M180 70 Q185 56 190 70" dur="0.5s" fill="freeze" />
               </path>
-              {/* Spout */}
-              <line x1="112" y1="56" x2="100" y2="70" stroke="var(--primary)" strokeWidth="2.5" opacity="0.7">
-                <animate attributeName="x1" values="160;112" dur="0.5s" fill="freeze" />
-                <animate attributeName="x2" values="148;100" dur="0.5s" fill="freeze" />
+              <line x1="160" y1="86" x2="144" y2="108" stroke="var(--primary)" strokeWidth="3" opacity="0.7">
+                <animate attributeName="x1" values="240;160" dur="0.5s" fill="freeze" />
+                <animate attributeName="x2" values="224;144" dur="0.5s" fill="freeze" />
               </line>
             </g>
-            {/* Water droplets — multiple, staggered */}
-            <circle cx="96" cy="72" r="3" fill="var(--primary-lighter)" opacity="0">
-              <animate attributeName="cy" values="72;106" dur="0.7s" repeatCount="3" />
+            {/* Water droplets */}
+            <circle cx="140" cy="112" r="3.5" fill="var(--primary-lighter)" opacity="0">
+              <animate attributeName="cy" values="112;174" dur="0.7s" repeatCount="3" />
               <animate attributeName="opacity" values="0;0.8;0" dur="0.7s" repeatCount="3" />
             </circle>
-            <circle cx="88" cy="76" r="2.5" fill="var(--primary-lighter)" opacity="0">
-              <animate attributeName="cy" values="76;108" dur="0.7s" repeatCount="3" begin="0.2s" />
+            <circle cx="128" cy="118" r="3" fill="var(--primary-lighter)" opacity="0">
+              <animate attributeName="cy" values="118;176" dur="0.7s" repeatCount="3" begin="0.2s" />
               <animate attributeName="opacity" values="0;0.7;0" dur="0.7s" repeatCount="3" begin="0.2s" />
             </circle>
-            <circle cx="102" cy="70" r="2" fill="var(--primary-lighter)" opacity="0">
-              <animate attributeName="cy" values="70;104" dur="0.7s" repeatCount="3" begin="0.35s" />
+            <circle cx="148" cy="108" r="2.5" fill="var(--primary-lighter)" opacity="0">
+              <animate attributeName="cy" values="108;170" dur="0.7s" repeatCount="3" begin="0.35s" />
               <animate attributeName="opacity" values="0;0.6;0" dur="0.7s" repeatCount="3" begin="0.35s" />
             </circle>
-            <circle cx="92" cy="78" r="1.5" fill="var(--primary-lighter)" opacity="0">
-              <animate attributeName="cy" values="78;108" dur="0.6s" repeatCount="3" begin="0.1s" />
+            <circle cx="134" cy="120" r="2" fill="var(--primary-lighter)" opacity="0">
+              <animate attributeName="cy" values="120;176" dur="0.6s" repeatCount="3" begin="0.1s" />
               <animate attributeName="opacity" values="0;0.5;0" dur="0.6s" repeatCount="3" begin="0.1s" />
             </circle>
           </g>
@@ -129,29 +126,26 @@ function GrowthAnimation() {
         {phase >= 3 && (
           <g>
             {/* Main stem */}
-            <line x1="90" y1="108" x2="90" y2="65" stroke="#2d8a4e" strokeWidth="4" strokeLinecap="round">
-              <animate attributeName="y2" values="108;65" dur="0.8s" fill="freeze" />
+            <line x1="130" y1="178" x2="130" y2="105" stroke="#2d8a4e" strokeWidth="5" strokeLinecap="round">
+              <animate attributeName="y2" values="178;105" dur="0.8s" fill="freeze" />
             </line>
-            {/* Stem secondary color overlay */}
-            <line x1="90" y1="108" x2="90" y2="65" stroke="#3ca85e" strokeWidth="2" strokeLinecap="round" opacity="0.4">
-              <animate attributeName="y2" values="108;65" dur="0.8s" fill="freeze" />
+            <line x1="130" y1="178" x2="130" y2="105" stroke="#3ca85e" strokeWidth="2.5" strokeLinecap="round" opacity="0.4">
+              <animate attributeName="y2" values="178;105" dur="0.8s" fill="freeze" />
             </line>
-            {/* Left leaf — larger, shaped */}
-            <path d="M90 82 Q72 70 76 86" fill="#3ca85e" opacity="0">
-              <animate attributeName="d" values="M90 82 Q88 80 89 83;M90 82 Q72 70 76 86" dur="0.6s" fill="freeze" begin="0.4s" />
+            {/* Left leaf */}
+            <path d="M130 140 Q100 118 108 148" fill="#3ca85e" opacity="0">
+              <animate attributeName="d" values="M130 140 Q128 138 129 141;M130 140 Q100 118 108 148" dur="0.6s" fill="freeze" begin="0.4s" />
               <animate attributeName="opacity" values="0;0.95" dur="0.4s" fill="freeze" begin="0.4s" />
             </path>
-            {/* Left leaf vein */}
-            <path d="M88 81 Q80 76 78 84" fill="none" stroke="#2d8a4e" strokeWidth="0.8" opacity="0">
+            <path d="M127 138 Q114 128 110 145" fill="none" stroke="#2d8a4e" strokeWidth="1" opacity="0">
               <animate attributeName="opacity" values="0;0.5" dur="0.3s" fill="freeze" begin="0.7s" />
             </path>
-            {/* Right leaf — larger, shaped */}
-            <path d="M90 75 Q108 62 104 78" fill="#3ca85e" opacity="0">
-              <animate attributeName="d" values="M90 75 Q92 73 91 76;M90 75 Q108 62 104 78" dur="0.6s" fill="freeze" begin="0.6s" />
+            {/* Right leaf */}
+            <path d="M130 128 Q160 106 154 136" fill="#3ca85e" opacity="0">
+              <animate attributeName="d" values="M130 128 Q132 126 131 129;M130 128 Q160 106 154 136" dur="0.6s" fill="freeze" begin="0.6s" />
               <animate attributeName="opacity" values="0;0.95" dur="0.4s" fill="freeze" begin="0.6s" />
             </path>
-            {/* Right leaf vein */}
-            <path d="M92 74 Q100 68 102 76" fill="none" stroke="#2d8a4e" strokeWidth="0.8" opacity="0">
+            <path d="M133 126 Q148 114 152 134" fill="none" stroke="#2d8a4e" strokeWidth="1" opacity="0">
               <animate attributeName="opacity" values="0;0.5" dur="0.3s" fill="freeze" begin="0.9s" />
             </path>
           </g>
@@ -160,73 +154,77 @@ function GrowthAnimation() {
         {/* Full plant with flower (phase 4) */}
         {phase >= 4 && (
           <g>
-            {/* Extended stem to top */}
-            <line x1="90" y1="65" x2="90" y2="32" stroke="#2d8a4e" strokeWidth="4" strokeLinecap="round">
-              <animate attributeName="y2" values="65;32" dur="0.7s" fill="freeze" />
+            {/* Extended stem */}
+            <line x1="130" y1="105" x2="130" y2="55" stroke="#2d8a4e" strokeWidth="5" strokeLinecap="round">
+              <animate attributeName="y2" values="105;55" dur="0.7s" fill="freeze" />
             </line>
-            <line x1="90" y1="65" x2="90" y2="32" stroke="#3ca85e" strokeWidth="2" strokeLinecap="round" opacity="0.4">
-              <animate attributeName="y2" values="65;32" dur="0.7s" fill="freeze" />
+            <line x1="130" y1="105" x2="130" y2="55" stroke="#3ca85e" strokeWidth="2.5" strokeLinecap="round" opacity="0.4">
+              <animate attributeName="y2" values="105;55" dur="0.7s" fill="freeze" />
             </line>
 
             {/* Upper left leaf */}
-            <path d="M90 55 Q66 40 72 60" fill="#3ca85e" opacity="0">
+            <path d="M130 90 Q96 68 106 98" fill="#3ca85e" opacity="0">
               <animate attributeName="opacity" values="0;0.9" dur="0.5s" fill="freeze" begin="0.3s" />
             </path>
-            <path d="M88 54 Q76 46 74 58" fill="none" stroke="#2d8a4e" strokeWidth="0.8" opacity="0">
+            <path d="M127 88 Q108 76 108 96" fill="none" stroke="#2d8a4e" strokeWidth="1" opacity="0">
               <animate attributeName="opacity" values="0;0.4" dur="0.3s" fill="freeze" begin="0.5s" />
             </path>
 
             {/* Upper right leaf */}
-            <path d="M90 46 Q114 32 108 52" fill="#3ca85e" opacity="0">
+            <path d="M130 76 Q166 52 158 84" fill="#3ca85e" opacity="0">
               <animate attributeName="opacity" values="0;0.9" dur="0.5s" fill="freeze" begin="0.5s" />
             </path>
-            <path d="M92 45 Q104 38 106 50" fill="none" stroke="#2d8a4e" strokeWidth="0.8" opacity="0">
+            <path d="M133 74 Q154 60 156 82" fill="none" stroke="#2d8a4e" strokeWidth="1" opacity="0">
               <animate attributeName="opacity" values="0;0.4" dur="0.3s" fill="freeze" begin="0.7s" />
             </path>
 
-            {/* Flower — multi-petal bloom */}
+            {/* Flower — large multi-petal bloom */}
             <g opacity="0">
               <animate attributeName="opacity" values="0;1" dur="0.6s" fill="freeze" begin="0.7s" />
-              {/* Petals */}
-              <ellipse cx="90" cy="20" rx="7" ry="10" fill="var(--accent)" opacity="0.9">
-                <animate attributeName="ry" values="0;10" dur="0.5s" fill="freeze" begin="0.7s" />
+              {/* Top petal */}
+              <ellipse cx="130" cy="28" rx="12" ry="18" fill="var(--accent)" opacity="0.9">
+                <animate attributeName="ry" values="0;18" dur="0.5s" fill="freeze" begin="0.7s" />
               </ellipse>
-              <ellipse cx="80" cy="28" rx="7" ry="10" fill="var(--accent)" opacity="0.8" transform="rotate(-45 80 28)">
-                <animate attributeName="ry" values="0;10" dur="0.5s" fill="freeze" begin="0.8s" />
+              {/* Top-left petal */}
+              <ellipse cx="114" cy="38" rx="11" ry="17" fill="var(--accent)" opacity="0.85" transform="rotate(-40 114 38)">
+                <animate attributeName="ry" values="0;17" dur="0.5s" fill="freeze" begin="0.8s" />
               </ellipse>
-              <ellipse cx="100" cy="28" rx="7" ry="10" fill="var(--accent)" opacity="0.8" transform="rotate(45 100 28)">
-                <animate attributeName="ry" values="0;10" dur="0.5s" fill="freeze" begin="0.85s" />
+              {/* Top-right petal */}
+              <ellipse cx="146" cy="38" rx="11" ry="17" fill="var(--accent)" opacity="0.85" transform="rotate(40 146 38)">
+                <animate attributeName="ry" values="0;17" dur="0.5s" fill="freeze" begin="0.85s" />
               </ellipse>
-              <ellipse cx="82" cy="35" rx="6" ry="9" fill="var(--accent)" opacity="0.7" transform="rotate(-80 82 35)">
-                <animate attributeName="ry" values="0;9" dur="0.5s" fill="freeze" begin="0.9s" />
+              {/* Left petal */}
+              <ellipse cx="110" cy="54" rx="10" ry="15" fill="var(--accent)" opacity="0.75" transform="rotate(-75 110 54)">
+                <animate attributeName="ry" values="0;15" dur="0.5s" fill="freeze" begin="0.9s" />
               </ellipse>
-              <ellipse cx="98" cy="35" rx="6" ry="9" fill="var(--accent)" opacity="0.7" transform="rotate(80 98 35)">
-                <animate attributeName="ry" values="0;9" dur="0.5s" fill="freeze" begin="0.95s" />
+              {/* Right petal */}
+              <ellipse cx="150" cy="54" rx="10" ry="15" fill="var(--accent)" opacity="0.75" transform="rotate(75 150 54)">
+                <animate attributeName="ry" values="0;15" dur="0.5s" fill="freeze" begin="0.95s" />
               </ellipse>
               {/* Flower center */}
-              <circle cx="90" cy="28" r="0" fill="var(--secondary)">
-                <animate attributeName="r" values="0;6" dur="0.5s" fill="freeze" begin="1s" />
+              <circle cx="130" cy="46" r="0" fill="var(--secondary)">
+                <animate attributeName="r" values="0;10" dur="0.5s" fill="freeze" begin="1s" />
               </circle>
-              <circle cx="90" cy="28" r="0" fill="var(--secondary-light)" opacity="0.6">
-                <animate attributeName="r" values="0;3" dur="0.4s" fill="freeze" begin="1.1s" />
+              <circle cx="130" cy="46" r="0" fill="var(--secondary-light)" opacity="0.6">
+                <animate attributeName="r" values="0;5" dur="0.4s" fill="freeze" begin="1.1s" />
               </circle>
             </g>
 
-            {/* Sparkles / glow particles */}
-            <circle cx="62" cy="18" r="0" fill="var(--primary)">
-              <animate attributeName="r" values="0;3;0" dur="1s" fill="freeze" begin="1.2s" />
+            {/* Sparkles */}
+            <circle cx="80" cy="22" r="0" fill="var(--primary)">
+              <animate attributeName="r" values="0;4;0" dur="1s" fill="freeze" begin="1.2s" />
               <animate attributeName="opacity" values="0;0.9;0" dur="1s" fill="freeze" begin="1.2s" />
             </circle>
-            <circle cx="120" cy="35" r="0" fill="var(--accent)">
-              <animate attributeName="r" values="0;2.5;0" dur="1s" fill="freeze" begin="1.4s" />
+            <circle cx="185" cy="50" r="0" fill="var(--accent)">
+              <animate attributeName="r" values="0;3.5;0" dur="1s" fill="freeze" begin="1.4s" />
               <animate attributeName="opacity" values="0;0.8;0" dur="1s" fill="freeze" begin="1.4s" />
             </circle>
-            <circle cx="55" cy="50" r="0" fill="var(--secondary)">
-              <animate attributeName="r" values="0;2;0" dur="1s" fill="freeze" begin="1.5s" />
+            <circle cx="70" cy="70" r="0" fill="var(--secondary)">
+              <animate attributeName="r" values="0;3;0" dur="1s" fill="freeze" begin="1.5s" />
               <animate attributeName="opacity" values="0;0.7;0" dur="1s" fill="freeze" begin="1.5s" />
             </circle>
-            <circle cx="115" cy="15" r="0" fill="var(--primary-lighter)">
-              <animate attributeName="r" values="0;2;0" dur="0.9s" fill="freeze" begin="1.3s" />
+            <circle cx="178" cy="20" r="0" fill="var(--primary-lighter)">
+              <animate attributeName="r" values="0;3;0" dur="0.9s" fill="freeze" begin="1.3s" />
               <animate attributeName="opacity" values="0;0.8;0" dur="0.9s" fill="freeze" begin="1.3s" />
             </circle>
           </g>
@@ -287,7 +285,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         {step === "welcome" && (
           <>
             <GrowthAnimation />
-            <h1 className="font-display gradient-text" style={{ fontSize: 40, fontWeight: 600, marginBottom: 8 }}>
+            <h1 className="font-display gradient-text" style={{ fontSize: 56, fontWeight: 800, marginBottom: 8, letterSpacing: "-0.02em", textTransform: "uppercase" }}>
               {APP_NAME}
             </h1>
             <p style={{ fontSize: 18, color: "var(--text-dim)", marginBottom: 40, lineHeight: 1.5 }}>
