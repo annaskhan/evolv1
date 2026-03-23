@@ -32,6 +32,24 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+function formatShortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function daysUntil(iso: string): number {
+  const target = new Date(iso + "T00:00:00");
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  return Math.ceil((target.getTime() - now.getTime()) / 86400000);
+}
+
+function daysLabel(n: number): string {
+  if (n < 0) return `${Math.abs(n)} day${Math.abs(n) !== 1 ? "s" : ""} overdue`;
+  if (n === 0) return "Due today";
+  if (n === 1) return "1 day left";
+  return `${n} days left`;
+}
+
 export default function GoalsPage() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [view, setView] = useState<View>("list");
@@ -45,6 +63,7 @@ export default function GoalsPage() {
   const [targetDate, setTargetDate] = useState("");
   const [tasks, setTasks] = useState<GoalTask[]>([]);
   const [newTask, setNewTask] = useState("");
+  const [newTaskDate, setNewTaskDate] = useState("");
 
   useEffect(() => {
     setGoals(getItem<Goal[]>(STORAGE_KEYS.GOALS, []));
@@ -57,11 +76,11 @@ export default function GoalsPage() {
 
   const resetForm = () => {
     setTitle(""); setDescription(""); setFocusArea("habits");
-    setTargetDate(""); setTasks([]); setNewTask("");
+    setTargetDate(""); setTasks([]); setNewTask(""); setNewTaskDate("");
   };
 
   const handleCreate = () => {
-    if (!title.trim()) return;
+    if (!title.trim() || !targetDate) return;
     const goal: Goal = {
       id: generateId(),
       title: title.trim(),
@@ -69,7 +88,7 @@ export default function GoalsPage() {
       focusArea,
       tasks,
       createdAt: new Date().toISOString(),
-      targetDate: targetDate || new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
+      targetDate,
       completed: false,
     };
     persist([goal, ...goals]);
@@ -79,8 +98,14 @@ export default function GoalsPage() {
 
   const addTask = () => {
     if (!newTask.trim()) return;
-    setTasks([...tasks, { id: generateId(), title: newTask.trim(), completed: false }]);
+    setTasks([...tasks, {
+      id: generateId(),
+      title: newTask.trim(),
+      completed: false,
+      targetDate: newTaskDate || undefined,
+    }]);
     setNewTask("");
+    setNewTaskDate("");
   };
 
   const removeTask = (id: string) => {
@@ -97,7 +122,6 @@ export default function GoalsPage() {
       return { ...g, tasks: newTasks, completed: allDone };
     });
     persist(updated);
-    // Check if task was just completed for animation
     const goal = updated.find((g) => g.id === goalId);
     const task = goal?.tasks.find((t) => t.id === taskId);
     if (task?.completed) {
@@ -130,6 +154,9 @@ export default function GoalsPage() {
 
   // ===== CREATE VIEW =====
   if (view === "create") {
+    const todayISO = new Date().toISOString().split("T")[0];
+    const daysLeft = targetDate ? daysUntil(targetDate) : null;
+
     return (
       <div style={{ padding: "0 20px" }}>
         {/* Hero header */}
@@ -145,7 +172,7 @@ export default function GoalsPage() {
         </div>
 
         <div className="stagger-children" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Title — large, prominent input */}
+          {/* Title */}
           <div className="fade-in-up">
             <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
               placeholder="My goal is to..."
@@ -159,7 +186,46 @@ export default function GoalsPage() {
               }} />
           </div>
 
-          {/* Description — conversational */}
+          {/* Target Date — PROMINENT */}
+          <div className="card" style={{
+            padding: "20px", background: "var(--gradient-hero)", border: "none",
+            color: "#fff", position: "relative", overflow: "hidden",
+          }}>
+            <div style={{ position: "relative", zIndex: 1 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, opacity: 0.9, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px" }}>
+                {"\u{1F3C1}"} Target Deadline
+              </p>
+              <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)}
+                min={todayISO}
+                style={{
+                  width: "100%", padding: "14px 18px", fontSize: 17, fontWeight: 600,
+                  borderRadius: "var(--radius-md)", border: "2px solid rgba(255,255,255,0.3)",
+                  background: "rgba(255,255,255,0.15)", color: "#fff", outline: "none",
+                  fontFamily: "var(--font-sans)", backdropFilter: "blur(8px)",
+                }} />
+              {daysLeft !== null && (
+                <div style={{
+                  marginTop: 12, display: "flex", alignItems: "center", gap: 8,
+                  animation: "fadeIn 0.3s var(--smooth)",
+                }}>
+                  <span style={{
+                    fontSize: 32, fontWeight: 800,
+                    textShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                  }}>{Math.max(0, daysLeft)}</span>
+                  <div>
+                    <p style={{ fontSize: 14, fontWeight: 600, margin: 0, opacity: 0.95 }}>
+                      {daysLabel(daysLeft)}
+                    </p>
+                    <p style={{ fontSize: 12, margin: "2px 0 0", opacity: 0.7 }}>
+                      to reach your goal
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Description */}
           <div>
             <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", margin: "0 0 8px", paddingLeft: 4 }}>
               {"\u{1F4AD}"} Why does this matter?
@@ -176,7 +242,7 @@ export default function GoalsPage() {
               }} />
           </div>
 
-          {/* Focus area — visual grid */}
+          {/* Focus area */}
           <div>
             <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", margin: "0 0 10px", paddingLeft: 4 }}>
               {"\u{1F3F7}\u{FE0F}"} What area of your life?
@@ -204,25 +270,13 @@ export default function GoalsPage() {
             </div>
           </div>
 
-          {/* Target date */}
+          {/* Milestones — with target dates */}
           <div>
-            <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", margin: "0 0 8px", paddingLeft: 4 }}>
-              {"\u{1F4C5}"} When do you want to achieve this?
+            <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", margin: "0 0 4px", paddingLeft: 4 }}>
+              {"\u{1F9E9}"} Break it into milestones
             </p>
-            <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)}
-              min={new Date().toISOString().split("T")[0]}
-              style={{
-                width: "100%", padding: "14px 18px", fontSize: 15,
-                borderRadius: "var(--radius-lg)", border: "2px solid var(--surface-border)",
-                background: "var(--bg-card)", color: "var(--text)", outline: "none",
-                fontFamily: "var(--font-sans)", transition: "all 0.3s var(--smooth)",
-              }} />
-          </div>
-
-          {/* Steps — interactive list builder */}
-          <div>
-            <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", margin: "0 0 10px", paddingLeft: 4 }}>
-              {"\u{1F9E9}"} Break it into steps
+            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 12px", paddingLeft: 4 }}>
+              Set weekly or daily targets to stay on track
             </p>
             <div style={{
               borderRadius: "var(--radius-lg)", border: "2px solid var(--surface-border)",
@@ -235,12 +289,22 @@ export default function GoalsPage() {
                   animation: `slideUp 0.3s var(--spring) both`, animationDelay: `${i * 50}ms`,
                 }}>
                   <span style={{
-                    width: 24, height: 24, borderRadius: "50%",
+                    width: 26, height: 26, borderRadius: "50%",
                     background: "var(--gradient-primary)", color: "#fff",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     fontSize: 12, fontWeight: 700, flexShrink: 0,
                   }}>{i + 1}</span>
-                  <span style={{ flex: 1, fontSize: 14, color: "var(--text)" }}>{t.title}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: 14, color: "var(--text)", display: "block" }}>{t.title}</span>
+                    {t.targetDate && (
+                      <span style={{ fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+                        </svg>
+                        Due {formatShortDate(t.targetDate)}
+                      </span>
+                    )}
+                  </div>
                   <button onClick={() => removeTask(t.id)} aria-label="Remove"
                     style={{
                       background: "none", border: "none", color: "var(--danger)", cursor: "pointer",
@@ -253,34 +317,59 @@ export default function GoalsPage() {
                   </button>
                 </div>
               ))}
-              <div style={{ display: "flex", gap: 0, borderTop: tasks.length > 0 ? "none" : "none" }}>
-                <input type="text" value={newTask} onChange={(e) => setNewTask(e.target.value)}
-                  placeholder={tasks.length === 0 ? "What\u2019s step one?" : `Step ${tasks.length + 1}...`}
-                  maxLength={100}
-                  onKeyDown={(e) => e.key === "Enter" && addTask()}
-                  style={{
-                    flex: 1, padding: "14px 16px", fontSize: 14,
-                    border: "none", background: "transparent", color: "var(--text)",
-                    outline: "none", fontFamily: "var(--font-sans)",
-                  }} />
-                <button onClick={addTask}
-                  style={{
-                    background: "none", border: "none", cursor: "pointer",
-                    padding: "12px 16px", color: newTask.trim() ? "var(--primary)" : "var(--text-muted)",
-                    fontWeight: 600, fontSize: 14, transition: "all 0.2s var(--spring)",
-                    minWidth: 44, minHeight: 44,
+              {/* Add milestone input */}
+              <div style={{ padding: "12px 16px", borderTop: tasks.length > 0 ? "none" : "none" }}>
+                <div style={{ display: "flex", gap: 0 }}>
+                  <input type="text" value={newTask} onChange={(e) => setNewTask(e.target.value)}
+                    placeholder={tasks.length === 0 ? "e.g. Lose 2kg this week" : `Milestone ${tasks.length + 1}...`}
+                    maxLength={100}
+                    onKeyDown={(e) => e.key === "Enter" && addTask()}
+                    style={{
+                      flex: 1, padding: "12px 0", fontSize: 14,
+                      border: "none", background: "transparent", color: "var(--text)",
+                      outline: "none", fontFamily: "var(--font-sans)",
+                    }} />
+                  <button onClick={addTask}
+                    style={{
+                      background: "none", border: "none", cursor: "pointer",
+                      padding: "12px 12px", color: newTask.trim() ? "var(--primary)" : "var(--text-muted)",
+                      fontWeight: 600, fontSize: 14, transition: "all 0.2s var(--spring)",
+                      minWidth: 44, minHeight: 44,
+                    }}>
+                    + Add
+                  </button>
+                </div>
+                {/* Optional date for this milestone */}
+                {newTask.trim() && (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 8, marginTop: 4,
+                    animation: "fadeIn 0.2s var(--smooth)",
                   }}>
-                  + Add
-                </button>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                    <input type="date" value={newTaskDate} onChange={(e) => setNewTaskDate(e.target.value)}
+                      min={todayISO}
+                      max={targetDate || undefined}
+                      style={{
+                        flex: 1, padding: "8px 12px", fontSize: 13,
+                        borderRadius: "var(--radius-sm)", border: "1px solid var(--surface-border)",
+                        background: "var(--bg-secondary)", color: "var(--text)", outline: "none",
+                        fontFamily: "var(--font-sans)",
+                      }} />
+                    <span style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }}>optional</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           {/* Submit */}
-          <button onClick={handleCreate} className="btn btn-primary" disabled={!title.trim()}
+          <button onClick={handleCreate} className="btn btn-primary" disabled={!title.trim() || !targetDate}
             style={{
               width: "100%", padding: "16px", fontSize: 17, marginBottom: 24,
               borderRadius: "var(--radius-lg)",
+              opacity: (!title.trim() || !targetDate) ? 0.5 : 1,
             }}>
             {"\u{2728}"} Create Goal
           </button>
@@ -292,6 +381,8 @@ export default function GoalsPage() {
   // ===== DETAIL VIEW =====
   if (view === "detail" && selectedGoal) {
     const progress = goalProgress(selectedGoal);
+    const daysLeft = daysUntil(selectedGoal.targetDate);
+
     return (
       <div style={{ padding: "0 20px" }}>
         <div style={{ padding: "20px 0 12px", display: "flex", alignItems: "center", gap: 12 }}>
@@ -313,25 +404,39 @@ export default function GoalsPage() {
         </div>
 
         <div className="stagger-children" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Target date countdown card */}
+          <div className="card" style={{
+            padding: "20px",
+            background: selectedGoal.completed ? "var(--gradient-success)" : daysLeft < 0 ? "linear-gradient(135deg, #ef4444, #f87171)" : "var(--gradient-hero)",
+            border: "none", color: "#fff",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <p style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 4px", opacity: 0.9 }}>
+                  {selectedGoal.completed ? "\u{1F389} Goal Completed" : "\u{1F3C1} Target Date"}
+                </p>
+                <p style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>{formatDate(selectedGoal.targetDate)}</p>
+              </div>
+              {!selectedGoal.completed && (
+                <div style={{ textAlign: "right" }}>
+                  <p style={{ fontSize: 32, fontWeight: 800, margin: 0, lineHeight: 1 }}>{Math.abs(daysLeft)}</p>
+                  <p style={{ fontSize: 11, margin: "2px 0 0", opacity: 0.8 }}>{daysLeft >= 0 ? "days left" : "days overdue"}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Meta */}
           <div className="card" style={{ padding: 16 }}>
-            <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: selectedGoal.description ? 12 : 0 }}>
               <span className="pop-in" style={{ fontSize: 14, background: "var(--primary-glow)", padding: "4px 12px", borderRadius: "var(--radius-xl)", color: "var(--primary)", fontWeight: 500 }}>
                 {getFocusEmoji(selectedGoal.focusArea)} {getFocusLabel(selectedGoal.focusArea)}
               </span>
-              {selectedGoal.completed && (
-                <span className="bounce-in" style={{ fontSize: 13, background: "rgba(16,185,129,0.1)", padding: "4px 12px", borderRadius: "var(--radius-xl)", color: "var(--success)", fontWeight: 600 }}>
-                  {"\u{1F389}"} Completed
-                </span>
-              )}
             </div>
             {selectedGoal.description && (
-              <p style={{ fontSize: 14, color: "var(--text-dim)", lineHeight: 1.6, margin: "0 0 12px" }}>{selectedGoal.description}</p>
+              <p style={{ fontSize: 14, color: "var(--text-dim)", lineHeight: 1.6, margin: "0 0 8px" }}>{selectedGoal.description}</p>
             )}
-            <div style={{ display: "flex", gap: 16, fontSize: 13, color: "var(--text-muted)" }}>
-              <span>Created {formatDate(selectedGoal.createdAt)}</span>
-              <span>Target {formatDate(selectedGoal.targetDate)}</span>
-            </div>
+            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>Created {formatDate(selectedGoal.createdAt)}</p>
           </div>
 
           {/* Progress bar */}
@@ -340,45 +445,62 @@ export default function GoalsPage() {
               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Progress</span>
               <span className="stat-number" style={{ fontSize: 14, fontWeight: 600, color: "var(--primary)" }}>{progress}%</span>
             </div>
-            <div style={{ height: 8, borderRadius: 4, background: "var(--bg-secondary)", overflow: "hidden" }}>
-              <div className="progress-bar-fill" style={{ height: "100%", width: `${progress}%`, borderRadius: 4, background: progress === 100 ? "var(--success)" : "var(--primary)" }} />
+            <div style={{ height: 10, borderRadius: 5, background: "var(--bg-secondary)", overflow: "hidden" }}>
+              <div className="progress-bar-fill" style={{ height: "100%", width: `${progress}%`, borderRadius: 5, background: progress === 100 ? "var(--success)" : "var(--primary)" }} />
             </div>
           </div>
 
-          {/* Tasks */}
+          {/* Milestones */}
           {selectedGoal.tasks.length > 0 && (
             <div className="card" style={{ padding: 16 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, display: "block" }}>
-                Steps ({selectedGoal.tasks.filter((t) => t.completed).length}/{selectedGoal.tasks.length})
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12, display: "block" }}>
+                Milestones ({selectedGoal.tasks.filter((t) => t.completed).length}/{selectedGoal.tasks.length})
               </label>
-              {selectedGoal.tasks.map((task) => (
-                <button key={task.id} onClick={() => toggleTask(selectedGoal.id, task.id)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 12, padding: "12px 0",
-                    width: "100%",
-                    background: "none", border: "none", borderBottom: "1px solid var(--surface-border)",
-                    cursor: "pointer", textAlign: "left",
-                    transition: "all 0.2s var(--smooth)",
-                  }}>
-                  <div className={justCompleted === task.id ? "task-checkbox checked" : "task-checkbox"} style={{
-                    width: 22, height: 22, borderRadius: 6, border: `2px solid ${task.completed ? "var(--primary)" : "var(--surface-border)"}`,
-                    background: task.completed ? "var(--primary)" : "transparent",
-                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                    transition: "all 0.25s var(--spring)",
-                  }}>
-                    {task.completed && (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                    )}
-                  </div>
-                  <span style={{
-                    fontSize: 15, color: task.completed ? "var(--text-muted)" : "var(--text)",
-                    textDecoration: task.completed ? "line-through" : "none",
-                    transition: "all 0.25s var(--smooth)",
-                  }}>
-                    {task.title}
-                  </span>
-                </button>
-              ))}
+              {selectedGoal.tasks.map((task, i) => {
+                const taskDays = task.targetDate ? daysUntil(task.targetDate) : null;
+                return (
+                  <button key={task.id} onClick={() => toggleTask(selectedGoal.id, task.id)}
+                    style={{
+                      display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 0",
+                      width: "100%",
+                      background: "none", border: "none", borderBottom: i < selectedGoal.tasks.length - 1 ? "1px solid var(--surface-border)" : "none",
+                      cursor: "pointer", textAlign: "left",
+                      transition: "all 0.2s var(--smooth)",
+                    }}>
+                    <div className={justCompleted === task.id ? "task-checkbox checked" : "task-checkbox"} style={{
+                      width: 24, height: 24, borderRadius: 8, border: `2px solid ${task.completed ? "var(--primary)" : "var(--surface-border)"}`,
+                      background: task.completed ? "var(--primary)" : "transparent",
+                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                      transition: "all 0.25s var(--spring)", marginTop: 1,
+                    }}>
+                      {task.completed && (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                      )}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <span style={{
+                        fontSize: 15, color: task.completed ? "var(--text-muted)" : "var(--text)",
+                        textDecoration: task.completed ? "line-through" : "none",
+                        transition: "all 0.25s var(--smooth)", display: "block",
+                      }}>
+                        {task.title}
+                      </span>
+                      {task.targetDate && (
+                        <span style={{
+                          fontSize: 11, marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4,
+                          color: task.completed ? "var(--text-muted)" : taskDays !== null && taskDays < 0 ? "var(--danger)" : taskDays !== null && taskDays <= 2 ? "var(--warning)" : "var(--text-muted)",
+                          fontWeight: taskDays !== null && taskDays <= 2 && !task.completed ? 600 : 400,
+                        }}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                          </svg>
+                          {task.completed ? `Completed` : taskDays !== null ? daysLabel(taskDays) : `Due ${formatShortDate(task.targetDate)}`}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -414,7 +536,7 @@ export default function GoalsPage() {
           <div className="empty-state-emoji" style={{ fontSize: 48, marginBottom: 16 }}>{"\u{1F3AF}"}</div>
           <h3 style={{ fontSize: 18, fontWeight: 600, margin: "0 0 8px", color: "var(--text)" }}>No goals yet</h3>
           <p style={{ fontSize: 14, color: "var(--text-dim)", margin: "0 0 24px", lineHeight: 1.6 }}>
-            Start by setting a goal you want to work toward. Break it down into steps to stay on track.
+            Start by setting a goal you want to work toward. Break it into milestones to stay on track.
           </p>
           <button onClick={() => setView("create")} className="btn btn-primary">+ Create Goal</button>
         </div>
@@ -423,6 +545,7 @@ export default function GoalsPage() {
           {/* Active goals */}
           {activeGoals.map((goal) => {
             const progress = goalProgress(goal);
+            const days = daysUntil(goal.targetDate);
             return (
               <button key={goal.id} onClick={() => { setSelectedId(goal.id); setView("detail"); }}
                 className="card card-interactive" style={{ padding: 16, textAlign: "left", width: "100%", cursor: "pointer", border: "1px solid var(--surface-border)" }}>
@@ -434,11 +557,19 @@ export default function GoalsPage() {
                 <div style={{ height: 6, borderRadius: 3, background: "var(--bg-secondary)", overflow: "hidden" }}>
                   <div className="progress-bar-fill" style={{ height: "100%", width: `${progress}%`, borderRadius: 3, background: "var(--primary)" }} />
                 </div>
-                {goal.tasks.length > 0 && (
-                  <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "8px 0 0" }}>
-                    {goal.tasks.filter((t) => t.completed).length}/{goal.tasks.length} steps · Target {formatDate(goal.targetDate)}
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+                  {goal.tasks.length > 0 && (
+                    <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>
+                      {goal.tasks.filter((t) => t.completed).length}/{goal.tasks.length} milestones
+                    </p>
+                  )}
+                  <p style={{
+                    fontSize: 12, margin: 0, fontWeight: 600, marginLeft: "auto",
+                    color: days < 0 ? "var(--danger)" : days <= 7 ? "var(--warning)" : "var(--text-muted)",
+                  }}>
+                    {days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? "Due today" : `${days}d left`}
                   </p>
-                )}
+                </div>
               </button>
             );
           })}

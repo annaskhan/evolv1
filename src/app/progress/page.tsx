@@ -81,6 +81,7 @@ const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "Ju
 export default function ProgressPage() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [moodCheckins, setMoodCheckins] = useState<Record<string, Mood>>({});
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
   const [loaded, setLoaded] = useState(false);
@@ -88,10 +89,11 @@ export default function ProgressPage() {
   useEffect(() => {
     setGoals(getItem<Goal[]>(STORAGE_KEYS.GOALS, []));
     setEntries(getItem<JournalEntry[]>(STORAGE_KEYS.JOURNAL, []));
+    setMoodCheckins(getItem<Record<string, Mood>>(STORAGE_KEYS.MOOD_CHECKINS, {}));
     setLoaded(true);
   }, []);
 
-  const hasData = goals.length > 0 || entries.length > 0;
+  const hasData = goals.length > 0 || entries.length > 0 || Object.keys(moodCheckins).length > 0;
 
   if (!hasData) {
     return (
@@ -121,14 +123,17 @@ export default function ProgressPage() {
   // Journal streak
   const journalStreak = computeStreak(entries);
 
-  // This week mood
+  // This week mood — merge journal entries + daily check-ins (check-in takes priority)
   const weekDates = getWeekDates();
   const moodByDate = new Map<string, Mood>();
   entries.forEach((e) => { if (!moodByDate.has(e.date)) moodByDate.set(e.date, e.mood); });
+  Object.entries(moodCheckins).forEach(([date, mood]) => { moodByDate.set(date, mood); });
 
-  // Mood distribution
+  // Mood distribution — combine journal + check-ins
   const moodCounts: Record<Mood, number> = { great: 0, good: 0, okay: 0, low: 0, rough: 0 };
   entries.forEach((e) => moodCounts[e.mood]++);
+  Object.values(moodCheckins).forEach((mood) => moodCounts[mood]++);
+  const totalMoodEntries = entries.length + Object.keys(moodCheckins).length;
   const totalEntries = entries.length;
 
   // Focus area breakdown (from both goals and journal)
@@ -227,7 +232,7 @@ export default function ProgressPage() {
         )}
 
         {/* ===== This Week Mood ===== */}
-        {entries.length > 0 && (
+        {(entries.length > 0 || Object.keys(moodCheckins).length > 0) && (
           <div className="card" style={{ padding: 16 }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 12 }}>
               This Week
@@ -265,7 +270,7 @@ export default function ProgressPage() {
         )}
 
         {/* ===== Mood Calendar ===== */}
-        {entries.length > 0 && (
+        {(entries.length > 0 || Object.keys(moodCheckins).length > 0) && (
           <div className="card" style={{ padding: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <button onClick={prevMonth} aria-label="Previous month"
@@ -331,7 +336,7 @@ export default function ProgressPage() {
         )}
 
         {/* ===== Mood Distribution ===== */}
-        {entries.length > 0 && (
+        {(entries.length > 0 || Object.keys(moodCheckins).length > 0) && (
           <div className="card" style={{ padding: 16 }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 12 }}>
               Mood Distribution
@@ -339,7 +344,7 @@ export default function ProgressPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {MOODS.map((m, i) => {
                 const count = moodCounts[m.id];
-                const pct = totalEntries > 0 ? Math.round((count / totalEntries) * 100) : 0;
+                const pct = totalMoodEntries > 0 ? Math.round((count / totalMoodEntries) * 100) : 0;
                 return (
                   <div key={m.id} style={{ animation: `fadeInUp 0.4s var(--smooth) both`, animationDelay: `${i * 60}ms` }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>

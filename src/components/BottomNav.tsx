@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from "react";
 
 function HomeIcon({ active, hovered, pressed }: { active: boolean; hovered: boolean; pressed: boolean }) {
   const color = active ? "var(--primary)" : hovered ? "var(--primary-light)" : "var(--text-muted)";
-  const fill = active || hovered ? "rgba(108, 60, 224, 0.08)" : "none";
+  const fill = active || hovered ? "rgba(234, 88, 12, 0.08)" : "none";
 
   return (
     <svg width="28" height="28" viewBox="0 0 24 24" fill={fill} stroke={color} strokeWidth={active ? 2.3 : hovered ? 2.1 : 1.8} strokeLinecap="round" strokeLinejoin="round">
@@ -103,7 +103,7 @@ function GoalsIcon({ active, hovered, pressed }: { active: boolean; hovered: boo
 
 function JournalIcon({ active, hovered, pressed }: { active: boolean; hovered: boolean; pressed: boolean }) {
   const color = active ? "var(--primary)" : hovered ? "var(--primary-light)" : "var(--text-muted)";
-  const fill = active || hovered ? "rgba(108, 60, 224, 0.06)" : "none";
+  const fill = active || hovered ? "rgba(234, 88, 12, 0.06)" : "none";
 
   return (
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={active ? 2.3 : hovered ? 2.1 : 1.8} strokeLinecap="round" strokeLinejoin="round">
@@ -213,9 +213,9 @@ function NavIcon({ icon, active, hovered, pressed }: { icon: string; active: boo
     transition: pressed ? "all 0.1s ease" : "all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)",
     transform: getScale(),
     filter: active
-      ? "drop-shadow(0 2px 8px rgba(108, 60, 224, 0.35))"
+      ? "drop-shadow(0 2px 8px rgba(234, 88, 12, 0.35))"
       : hovered
-        ? "drop-shadow(0 1px 4px rgba(108, 60, 224, 0.2))"
+        ? "drop-shadow(0 1px 4px rgba(234, 88, 12, 0.2))"
         : "none",
   };
 

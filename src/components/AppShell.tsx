@@ -6,6 +6,7 @@ import { getItem } from "@/lib/storage";
 import ThemeProvider from "./ThemeProvider";
 import BottomNav from "./BottomNav";
 import Onboarding from "./Onboarding";
+import MoodCheckin from "./MoodCheckin";
 
 function OfflineBanner() {
   const [offline, setOffline] = useState(false);
@@ -89,6 +90,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
         <BottomNav />
+        <MoodCheckin />
       </div>
     </ThemeProvider>
   );

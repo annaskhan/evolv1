@@ -7,6 +7,7 @@ export interface GoalTask {
   id: string;
   title: string;
   completed: boolean;
+  targetDate?: string; // ISO date — milestone due date
 }
 
 export interface Goal {

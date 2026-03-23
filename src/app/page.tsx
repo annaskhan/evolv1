@@ -115,7 +115,7 @@ function QuickActionCard({ href, icon, title, subtitle, gradientBg }: {
           background: gradientBg, display: "flex", alignItems: "center", justifyContent: "center",
           transition: "all 0.35s var(--spring)",
           transform: hovered ? "scale(1.08) rotate(-3deg)" : "scale(1)",
-          boxShadow: hovered ? "0 4px 16px rgba(108, 60, 224, 0.15)" : "none",
+          boxShadow: hovered ? "0 4px 16px rgba(234, 88, 12, 0.15)" : "none",
         }}>
           {icon}
         </div>

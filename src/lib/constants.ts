@@ -12,6 +12,7 @@ export const STORAGE_KEYS = {
   GOALS: "evolv_goals",
   JOURNAL: "evolv_journal",
   SETTINGS: "evolv_settings",
+  MOOD_CHECKINS: "evolv_mood_checkins",
 } as const;
 
 // Focus areas for onboarding and goals
