@@ -71,7 +71,6 @@ function computeStreak(entries: JournalEntry[]): number {
     } else if (i > 0) {
       break;
     }
-    // Allow today to be missing (streak continues from yesterday)
   }
   return streak;
 }
@@ -84,10 +83,12 @@ export default function ProgressPage() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     setGoals(getItem<Goal[]>(STORAGE_KEYS.GOALS, []));
     setEntries(getItem<JournalEntry[]>(STORAGE_KEYS.JOURNAL, []));
+    setLoaded(true);
   }, []);
 
   const hasData = goals.length > 0 || entries.length > 0;
@@ -95,12 +96,12 @@ export default function ProgressPage() {
   if (!hasData) {
     return (
       <div style={{ padding: "0 20px" }}>
-        <div style={{ padding: "20px 0 12px" }}>
+        <div className="fade-in" style={{ padding: "20px 0 12px" }}>
           <h1 className="font-display" style={{ fontSize: 28, fontWeight: 600, margin: 0 }}>Progress</h1>
           <p style={{ fontSize: 14, color: "var(--text-dim)", margin: "4px 0 0" }}>See how far you{"'"}ve come</p>
         </div>
-        <div className="card fade-in-up" style={{ padding: "48px 24px", textAlign: "center", marginTop: 12 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>{"\u{1F4C8}"}</div>
+        <div className="card slide-up" style={{ padding: "48px 24px", textAlign: "center", marginTop: 12 }}>
+          <div className="empty-state-emoji" style={{ fontSize: 48, marginBottom: 16 }}>{"\u{1F4C8}"}</div>
           <h3 style={{ fontSize: 18, fontWeight: 600, margin: "0 0 8px", color: "var(--text)" }}>No data yet</h3>
           <p style={{ fontSize: 14, color: "var(--text-dim)", margin: 0, lineHeight: 1.6 }}>
             Start creating goals and journal entries to see your progress here.
@@ -153,7 +154,7 @@ export default function ProgressPage() {
 
   return (
     <div style={{ padding: "0 20px" }}>
-      <div style={{ padding: "20px 0 12px" }}>
+      <div className="fade-in" style={{ padding: "20px 0 12px" }}>
         <h1 className="font-display" style={{ fontSize: 28, fontWeight: 600, margin: 0 }}>Progress</h1>
         <p style={{ fontSize: 14, color: "var(--text-dim)", margin: "4px 0 0" }}>See how far you{"'"}ve come</p>
       </div>
@@ -162,18 +163,22 @@ export default function ProgressPage() {
 
         {/* ===== Overview Stats ===== */}
         <div style={{ display: "flex", gap: 10 }}>
-          <div className="card" style={{ flex: 1, padding: "16px 12px", textAlign: "center" }}>
-            <p style={{ fontSize: 28, fontWeight: 700, color: "var(--primary)", margin: 0 }}>{completedGoals.length}</p>
-            <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "2px 0 0" }}>Goals Done</p>
-          </div>
-          <div className="card" style={{ flex: 1, padding: "16px 12px", textAlign: "center" }}>
-            <p style={{ fontSize: 28, fontWeight: 700, color: "var(--accent)", margin: 0 }}>{entries.length}</p>
-            <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "2px 0 0" }}>Journal Entries</p>
-          </div>
-          <div className="card" style={{ flex: 1, padding: "16px 12px", textAlign: "center" }}>
-            <p style={{ fontSize: 28, fontWeight: 700, color: "var(--secondary)", margin: 0 }}>{journalStreak}</p>
-            <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "2px 0 0" }}>Day Streak</p>
-          </div>
+          {[
+            { value: completedGoals.length, label: "Goals Done", color: "var(--primary)", delay: "0ms" },
+            { value: entries.length, label: "Journal Entries", color: "var(--accent)", delay: "100ms" },
+            { value: journalStreak, label: "Day Streak", color: "var(--secondary)", delay: "200ms", emoji: journalStreak >= 7 ? "\u{1F525}" : "" },
+          ].map((stat) => (
+            <div key={stat.label} className="card" style={{
+              flex: 1, padding: "16px 12px", textAlign: "center",
+              animation: loaded ? `bounceIn 0.5s var(--spring) both` : "none",
+              animationDelay: stat.delay,
+            }}>
+              <p className="stat-number" style={{ fontSize: 28, fontWeight: 700, color: stat.color, margin: 0, animationDelay: stat.delay }}>
+                {stat.value}{stat.emoji || ""}
+              </p>
+              <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "2px 0 0" }}>{stat.label}</p>
+            </div>
+          ))}
         </div>
 
         {/* ===== Goal Progress ===== */}
@@ -183,10 +188,10 @@ export default function ProgressPage() {
               <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                 Goal Progress
               </span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: "var(--primary)" }}>{overallGoalProgress}%</span>
+              <span className="stat-number" style={{ fontSize: 14, fontWeight: 700, color: "var(--primary)" }}>{overallGoalProgress}%</span>
             </div>
             <div style={{ height: 10, borderRadius: 5, background: "var(--bg-secondary)", overflow: "hidden", marginBottom: 12 }}>
-              <div style={{ height: "100%", width: `${overallGoalProgress}%`, borderRadius: 5, background: "var(--primary)", transition: "width 0.3s ease" }} />
+              <div className="progress-bar-fill" style={{ height: "100%", width: `${overallGoalProgress}%`, borderRadius: 5, background: "var(--primary)" }} />
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "var(--text-dim)" }}>
               <span>{activeGoals.length} active</span>
@@ -196,16 +201,16 @@ export default function ProgressPage() {
             {/* Individual goal bars */}
             {activeGoals.length > 0 && (
               <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-                {activeGoals.map((goal) => {
+                {activeGoals.map((goal, i) => {
                   const p = goalProgress(goal);
                   return (
-                    <div key={goal.id}>
+                    <div key={goal.id} style={{ animation: `fadeInUp 0.4s var(--smooth) both`, animationDelay: `${i * 80}ms` }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                         <span style={{ fontSize: 13, color: "var(--text)", fontWeight: 500 }}>{goal.title}</span>
                         <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{p}%</span>
                       </div>
                       <div style={{ height: 6, borderRadius: 3, background: "var(--bg-secondary)", overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${p}%`, borderRadius: 3, background: "var(--primary-light)", transition: "width 0.3s" }} />
+                        <div className="progress-bar-fill" style={{ height: "100%", width: `${p}%`, borderRadius: 3, background: "var(--primary-light)" }} />
                       </div>
                     </div>
                   );
@@ -226,7 +231,11 @@ export default function ProgressPage() {
                 const mood = moodByDate.get(date);
                 const isToday = date === today;
                 return (
-                  <div key={date} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: 1 }}>
+                  <div key={date} style={{
+                    display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: 1,
+                    animation: `bounceIn 0.4s var(--spring) both`,
+                    animationDelay: `${i * 60}ms`,
+                  }}>
                     <span style={{ fontSize: 11, fontWeight: 500, color: isToday ? "var(--primary)" : "var(--text-muted)" }}>{DAY_LABELS[i]}</span>
                     <div style={{
                       width: 36, height: 36, borderRadius: "50%",
@@ -234,6 +243,8 @@ export default function ProgressPage() {
                       display: "flex", alignItems: "center", justifyContent: "center",
                       border: isToday ? "2px solid var(--primary)" : "none",
                       fontSize: 18,
+                      transition: "all 0.3s var(--spring)",
+                      boxShadow: mood ? `0 2px 8px ${getMoodColor(mood)}40` : "none",
                     }}>
                       {mood ? getMoodEmoji(mood) : ""}
                     </div>
@@ -252,14 +263,16 @@ export default function ProgressPage() {
           <div className="card" style={{ padding: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <button onClick={prevMonth} aria-label="Previous month"
-                style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--bg-secondary)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                className="icon-btn"
+                style={{ width: 36, height: 36, background: "var(--bg-secondary)" }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
               </button>
               <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>
                 {MONTH_NAMES[calMonth]} {calYear}
               </span>
               <button onClick={nextMonth} aria-label="Next month"
-                style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--bg-secondary)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                className="icon-btn"
+                style={{ width: 36, height: 36, background: "var(--bg-secondary)" }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
               </button>
             </div>
@@ -290,6 +303,8 @@ export default function ProgressPage() {
                     color: mood ? "#fff" : "var(--text-muted)",
                     border: isToday ? "2px solid var(--primary)" : "none",
                     position: "relative",
+                    transition: "all 0.3s var(--smooth)",
+                    boxShadow: mood && isToday ? `0 0 8px ${getMoodColor(mood)}60` : "none",
                   }}>
                     {day}
                   </div>
@@ -301,7 +316,7 @@ export default function ProgressPage() {
             <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 12, flexWrap: "wrap" }}>
               {MOODS.map((m) => (
                 <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: 2, background: getMoodColor(m.id) }} />
+                  <div style={{ width: 10, height: 10, borderRadius: 2, background: getMoodColor(m.id), transition: "transform 0.2s var(--spring)" }} />
                   <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{m.label}</span>
                 </div>
               ))}
@@ -316,11 +331,11 @@ export default function ProgressPage() {
               Mood Distribution
             </span>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {MOODS.map((m) => {
+              {MOODS.map((m, i) => {
                 const count = moodCounts[m.id];
                 const pct = totalEntries > 0 ? Math.round((count / totalEntries) * 100) : 0;
                 return (
-                  <div key={m.id}>
+                  <div key={m.id} style={{ animation: `fadeInUp 0.4s var(--smooth) both`, animationDelay: `${i * 60}ms` }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                       <span style={{ fontSize: 13, color: "var(--text)" }}>
                         {m.emoji} {m.label}
@@ -330,7 +345,7 @@ export default function ProgressPage() {
                       </span>
                     </div>
                     <div style={{ height: 6, borderRadius: 3, background: "var(--bg-secondary)", overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${pct}%`, borderRadius: 3, background: getMoodColor(m.id), transition: "width 0.3s" }} />
+                      <div className="progress-bar-fill" style={{ height: "100%", width: `${pct}%`, borderRadius: 3, background: getMoodColor(m.id) }} />
                     </div>
                   </div>
                 );
@@ -346,16 +361,16 @@ export default function ProgressPage() {
               Top Focus Areas
             </span>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {topFocusAreas.map(([id, count]) => {
+              {topFocusAreas.map(([id, count], i) => {
                 const pct = Math.round((count / maxFocusCount) * 100);
                 return (
-                  <div key={id}>
+                  <div key={id} style={{ animation: `fadeInUp 0.4s var(--smooth) both`, animationDelay: `${i * 60}ms` }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                       <span style={{ fontSize: 13, color: "var(--text)", fontWeight: 500 }}>{getFocusLabel(id)}</span>
                       <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{count}</span>
                     </div>
                     <div style={{ height: 6, borderRadius: 3, background: "var(--bg-secondary)", overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${pct}%`, borderRadius: 3, background: "var(--primary)", transition: "width 0.3s" }} />
+                      <div className="progress-bar-fill" style={{ height: "100%", width: `${pct}%`, borderRadius: 3, background: "var(--primary)" }} />
                     </div>
                   </div>
                 );
@@ -371,9 +386,13 @@ export default function ProgressPage() {
               Milestones Reached
             </span>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {completedGoals.map((goal) => (
-                <div key={goal.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ fontSize: 20 }}>{"\u{1F3C6}"}</span>
+              {completedGoals.map((goal, i) => (
+                <div key={goal.id} style={{
+                  display: "flex", alignItems: "center", gap: 12,
+                  animation: `slideUp 0.4s var(--spring) both`,
+                  animationDelay: `${i * 80}ms`,
+                }}>
+                  <span className="celebrate" style={{ fontSize: 20, animationDelay: `${i * 100 + 200}ms` }}>{"\u{1F3C6}"}</span>
                   <div style={{ flex: 1 }}>
                     <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", margin: 0 }}>{goal.title}</p>
                     <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "2px 0 0" }}>

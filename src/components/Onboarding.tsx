@@ -72,11 +72,11 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       </div>
 
       {/* Step content */}
-      <div className="fade-in-up" key={step} style={{ maxWidth: 400, width: "100%" }}>
+      <div className="slide-up" key={step} style={{ maxWidth: 400, width: "100%" }}>
         {step === "welcome" && (
           <>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>{"\u{1F331}"}</div>
-            <h1 className="font-display" style={{ fontSize: 36, fontWeight: 600, marginBottom: 8, color: "var(--text)" }}>
+            <div className="float" style={{ fontSize: 56, marginBottom: 16 }}>{"\u{1F331}"}</div>
+            <h1 className="font-display gradient-text" style={{ fontSize: 40, fontWeight: 600, marginBottom: 8 }}>
               {APP_NAME}
             </h1>
             <p style={{ fontSize: 18, color: "var(--text-dim)", marginBottom: 40, lineHeight: 1.5 }}>
@@ -93,6 +93,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
 
         {step === "name" && (
           <>
+            <div className="pop-in" style={{ fontSize: 40, marginBottom: 12 }}>{"\u{1F44B}"}</div>
             <h2 className="font-display" style={{ fontSize: 28, fontWeight: 600, marginBottom: 8 }}>
               {"What\u2019s your name?"}
             </h2>
@@ -117,9 +118,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 outline: "none",
                 marginBottom: 32,
                 fontFamily: "var(--font-sans)",
+                transition: "all 0.25s var(--smooth)",
               }}
-              onFocus={(e) => (e.target.style.borderColor = "var(--primary)")}
-              onBlur={(e) => (e.target.style.borderColor = "var(--surface-border)")}
               onKeyDown={(e) => e.key === "Enter" && name.trim() && next()}
             />
             <div style={{ display: "flex", gap: 12 }}>
@@ -135,6 +135,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
 
         {step === "focus" && (
           <>
+            <div className="pop-in" style={{ fontSize: 40, marginBottom: 12 }}>{"\u{1F3AF}"}</div>
             <h2 className="font-display" style={{ fontSize: 28, fontWeight: 600, marginBottom: 8 }}>
               What are you working on?
             </h2>
@@ -142,11 +143,12 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
               Choose areas you want to focus on. You can change these later.
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", marginBottom: 32 }}>
-              {FOCUS_AREAS.map((area) => (
+              {FOCUS_AREAS.map((area, i) => (
                 <button
                   key={area.id}
                   className={`focus-chip ${focusAreas.includes(area.id) ? "selected" : ""}`}
                   onClick={() => toggleFocus(area.id)}
+                  style={{ animationDelay: `${i * 50}ms` }}
                 >
                   <FocusIcon icon={area.icon} />
                   {area.label}
@@ -171,7 +173,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
 
         {step === "ready" && (
           <>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>{"\u{2728}"}</div>
+            <div className="celebrate" style={{ fontSize: 56, marginBottom: 16, display: "inline-block" }}>{"\u{2728}"}</div>
             <h2 className="font-display" style={{ fontSize: 28, fontWeight: 600, marginBottom: 8 }}>
               {"You\u2019re all set, " + (name.trim() || "friend") + "!"}
             </h2>

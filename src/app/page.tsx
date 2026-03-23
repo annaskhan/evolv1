@@ -40,17 +40,17 @@ export default function HomePage() {
   const [name, setName] = useState("");
   const [goals, setGoals] = useState<Goal[]>([]);
   const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     setName(getItem(STORAGE_KEYS.USER_NAME, ""));
     setGoals(getItem<Goal[]>(STORAGE_KEYS.GOALS, []));
     setEntries(getItem<JournalEntry[]>(STORAGE_KEYS.JOURNAL, []));
+    setLoaded(true);
   }, []);
 
   const activeGoals = goals.filter((g) => !g.completed);
   const completedGoals = goals.filter((g) => g.completed);
-  const today = new Date().toISOString().split("T")[0];
-  const todayEntries = entries.filter((e) => e.date === today);
   const thisWeekEntries = entries.filter((e) => {
     const diff = Date.now() - new Date(e.date).getTime();
     return diff < 7 * 86400000;
@@ -59,21 +59,21 @@ export default function HomePage() {
   return (
     <div style={{ padding: "0 20px" }}>
       {/* Header */}
-      <div style={{ padding: "20px 0 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div className="greeting-text" style={{ padding: "20px 0 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
           <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>
             {formatDate()}
           </p>
           <h1 className="font-display" style={{ fontSize: 28, fontWeight: 600, margin: "4px 0 0" }}>
-            {getGreeting()}{name ? `, ${name}` : ""}
+            {getGreeting()}{name ? <>, <span className="greeting-name">{name}</span></> : ""}
           </h1>
         </div>
         <Link
           href="/settings"
           aria-label="Settings"
+          className="icon-btn settings-btn"
           style={{
-            width: 40, height: 40, borderRadius: "50%", background: "var(--bg-secondary)",
-            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "var(--bg-secondary)",
             color: "var(--text-dim)", textDecoration: "none",
           }}
         >
@@ -85,94 +85,61 @@ export default function HomePage() {
       </div>
 
       {/* Stats row */}
-      {(goals.length > 0 || entries.length > 0) && (
-        <div className="fade-in" style={{ display: "flex", gap: 10, marginTop: 16 }}>
-          <div className="card" style={{ flex: 1, padding: "14px 16px", textAlign: "center" }}>
-            <p style={{ fontSize: 24, fontWeight: 700, color: "var(--primary)", margin: 0 }}>{activeGoals.length}</p>
-            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "2px 0 0" }}>Active Goals</p>
-          </div>
-          <div className="card" style={{ flex: 1, padding: "14px 16px", textAlign: "center" }}>
-            <p style={{ fontSize: 24, fontWeight: 700, color: "var(--accent)", margin: 0 }}>{completedGoals.length}</p>
-            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "2px 0 0" }}>Completed</p>
-          </div>
-          <div className="card" style={{ flex: 1, padding: "14px 16px", textAlign: "center" }}>
-            <p style={{ fontSize: 24, fontWeight: 700, color: "var(--secondary)", margin: 0 }}>{thisWeekEntries.length}</p>
-            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "2px 0 0" }}>This Week</p>
-          </div>
+      {loaded && (goals.length > 0 || entries.length > 0) && (
+        <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+          {[
+            { value: activeGoals.length, label: "Active Goals", color: "var(--primary)", delay: "0ms" },
+            { value: completedGoals.length, label: "Completed", color: "var(--accent)", delay: "100ms" },
+            { value: thisWeekEntries.length, label: "This Week", color: "var(--secondary)", delay: "200ms" },
+          ].map((stat) => (
+            <div key={stat.label} className="card" style={{
+              flex: 1, padding: "14px 16px", textAlign: "center",
+              animation: `bounceIn 0.5s var(--spring) both`,
+              animationDelay: stat.delay,
+            }}>
+              <p className="stat-number" style={{ fontSize: 24, fontWeight: 700, color: stat.color, margin: 0, animationDelay: stat.delay }}>{stat.value}</p>
+              <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "2px 0 0" }}>{stat.label}</p>
+            </div>
+          ))}
         </div>
       )}
 
       {/* Quick Actions */}
       <div className="stagger-children" style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 20 }}>
-        <Link href="/goals" style={{ textDecoration: "none" }}>
-          <div className="card card-interactive" style={{ padding: "20px", display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{
-              width: 48, height: 48, borderRadius: "var(--radius-md)",
-              background: "var(--primary-glow)", display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 22,
-            }}>
-              {"\u{1F3AF}"}
+        {[
+          { href: "/goals", emoji: "\u{1F3AF}", bg: "var(--primary-glow)", title: "My Goals", subtitle: activeGoals.length > 0 ? `${activeGoals.length} active goal${activeGoals.length > 1 ? "s" : ""}` : "Set targets and track your progress" },
+          { href: "/journal", emoji: "\u{1F4DD}", bg: "rgba(181, 131, 141, 0.1)", title: "Journal", subtitle: entries.length > 0 ? `${entries.length} entr${entries.length > 1 ? "ies" : "y"} so far` : "Reflect on your day and thoughts" },
+          { href: "/progress", emoji: "\u{1F4C8}", bg: "rgba(233, 196, 106, 0.1)", title: "Progress", subtitle: "See how far you\u2019ve come" },
+        ].map((item) => (
+          <Link key={item.href} href={item.href} style={{ textDecoration: "none" }}>
+            <div className="card card-interactive" style={{ padding: "20px", display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{
+                width: 48, height: 48, borderRadius: "var(--radius-md)",
+                background: item.bg, display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 22, transition: "transform 0.3s var(--spring)",
+              }}>
+                {item.emoji}
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0, color: "var(--text)" }}>{item.title}</h3>
+                <p style={{ fontSize: 13, color: "var(--text-dim)", margin: "2px 0 0" }}>{item.subtitle}</p>
+              </div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.3s var(--smooth)" }}>
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
             </div>
-            <div style={{ flex: 1 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0, color: "var(--text)" }}>My Goals</h3>
-              <p style={{ fontSize: 13, color: "var(--text-dim)", margin: "2px 0 0" }}>
-                {activeGoals.length > 0 ? `${activeGoals.length} active goal${activeGoals.length > 1 ? "s" : ""}` : "Set targets and track your progress"}
-              </p>
-            </div>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </div>
-        </Link>
-
-        <Link href="/journal" style={{ textDecoration: "none" }}>
-          <div className="card card-interactive" style={{ padding: "20px", display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{
-              width: 48, height: 48, borderRadius: "var(--radius-md)",
-              background: "rgba(181, 131, 141, 0.1)", display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 22,
-            }}>
-              {"\u{1F4DD}"}
-            </div>
-            <div style={{ flex: 1 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0, color: "var(--text)" }}>Journal</h3>
-              <p style={{ fontSize: 13, color: "var(--text-dim)", margin: "2px 0 0" }}>
-                {todayEntries.length > 0 ? `${todayEntries.length} entr${todayEntries.length > 1 ? "ies" : "y"} today` : "Reflect on your day and thoughts"}
-              </p>
-            </div>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </div>
-        </Link>
-
-        <Link href="/progress" style={{ textDecoration: "none" }}>
-          <div className="card card-interactive" style={{ padding: "20px", display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{
-              width: 48, height: 48, borderRadius: "var(--radius-md)",
-              background: "rgba(233, 196, 106, 0.1)", display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 22,
-            }}>
-              {"\u{1F4C8}"}
-            </div>
-            <div style={{ flex: 1 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0, color: "var(--text)" }}>Progress</h3>
-              <p style={{ fontSize: 13, color: "var(--text-dim)", margin: "2px 0 0" }}>See how far you{"'"}ve come</p>
-            </div>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </div>
-        </Link>
+          </Link>
+        ))}
       </div>
 
       {/* Motivational card */}
       <div
-        className="card fade-in"
+        className="card quote-card slide-up"
         style={{
           marginTop: 24, padding: "24px 20px",
           background: "linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)",
           border: "none", color: "#ffffff",
+          animationDelay: "0.3s",
         }}
       >
         <p style={{ fontSize: 13, fontWeight: 600, opacity: 0.85, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 8px" }}>
