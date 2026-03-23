@@ -203,19 +203,8 @@ function ProgressIcon({ active, hovered, pressed }: { active: boolean; hovered: 
 }
 
 function NavIcon({ icon, active, hovered, pressed }: { icon: string; active: boolean; hovered: boolean; pressed: boolean }) {
-  const [wasJustActivated, setWasJustActivated] = useState(false);
-
-  useEffect(() => {
-    if (active) {
-      setWasJustActivated(true);
-      const t = setTimeout(() => setWasJustActivated(false), 500);
-      return () => clearTimeout(t);
-    }
-  }, [active]);
-
   const getScale = () => {
     if (pressed) return "scale(0.75)";
-    if (wasJustActivated) return "scale(1.3)";
     if (hovered && !active) return "scale(1.12)";
     return "scale(1)";
   };

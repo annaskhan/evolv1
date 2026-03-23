@@ -504,7 +504,6 @@ html, body {
 
 .nav-item.active {
   color: var(--primary);
-  animation: navBounce 0.35s var(--spring);
 }
 
 /* Active tab indicator bar */

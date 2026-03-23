@@ -79,79 +79,130 @@ export default function JournalPage() {
 
   // ===== CREATE VIEW =====
   if (view === "create") {
+    const moodColors: Record<string, string> = {
+      great: "#10b981", good: "#8b5cf6", okay: "#f59e0b", low: "#f472b6", rough: "#ef4444",
+    };
     return (
       <div style={{ padding: "0 20px" }}>
-        <div style={{ padding: "20px 0 12px", display: "flex", alignItems: "center", gap: 12 }}>
+        {/* Hero header */}
+        <div className="slide-up" style={{ padding: "24px 0 20px", textAlign: "center", position: "relative" }}>
           <button onClick={() => { resetForm(); setView("list"); }} aria-label="Back"
             className="icon-btn back-btn"
-            style={{ background: "var(--bg-secondary)" }}>
+            style={{ background: "var(--bg-secondary)", position: "absolute", left: 0, top: 24 }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
           </button>
-          <h1 className="font-display fade-in" style={{ fontSize: 24, fontWeight: 600, margin: 0 }}>New Entry</h1>
+          <div className="pop-in" style={{ fontSize: 44, marginBottom: 8 }}>{"\u{270D}\u{FE0F}"}</div>
+          <h1 className="font-display gradient-text" style={{ fontSize: 26, fontWeight: 700, margin: "0 0 4px" }}>How{"\u2019"}s Your Day?</h1>
+          <p style={{ fontSize: 14, color: "var(--text-dim)", margin: 0 }}>Take a moment to reflect</p>
         </div>
 
-        <div className="stagger-children" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Mood */}
-          <div className="card" style={{ padding: 16 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10, display: "block" }}>
-              How are you feeling?
-            </label>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
-              {MOODS.map((m) => (
-                <button key={m.id} onClick={() => setMood(m.id)}
-                  className={`mood-btn ${mood === m.id ? "selected" : ""}`}
-                  style={{
-                    flex: 1, padding: "12px 4px", borderRadius: "var(--radius-md)",
-                    border: mood === m.id ? "2px solid var(--primary)" : "2px solid var(--surface-border)",
-                    background: mood === m.id ? "var(--primary-glow)" : "var(--bg)",
-                    cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-                  }}>
-                  <span className="mood-emoji" style={{ fontSize: 30, transition: "transform 0.3s var(--spring)", transform: mood === m.id ? "scale(1.25)" : "scale(1)", display: "inline-block" }}>{m.emoji}</span>
-                  <span style={{ fontSize: 11, color: mood === m.id ? "var(--primary)" : "var(--text-muted)", fontWeight: mood === m.id ? 700 : 500, transition: "all 0.2s", letterSpacing: mood === m.id ? "0.02em" : "normal" }}>{m.label}</span>
-                </button>
-              ))}
+        <div className="stagger-children" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Mood — large, visual picker */}
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", margin: "0 0 12px", paddingLeft: 4 }}>
+              How are you feeling right now?
+            </p>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+              {MOODS.map((m) => {
+                const selected = mood === m.id;
+                const moodColor = moodColors[m.id] || "var(--primary)";
+                return (
+                  <button key={m.id} onClick={() => setMood(m.id)}
+                    className={`mood-btn ${selected ? "selected" : ""}`}
+                    style={{
+                      flex: 1, padding: "16px 4px", borderRadius: "var(--radius-lg)",
+                      border: selected ? `2.5px solid ${moodColor}` : "2px solid var(--surface-border)",
+                      background: selected ? `${moodColor}12` : "var(--bg-card)",
+                      cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+                      boxShadow: selected ? `0 4px 20px ${moodColor}30` : "none",
+                      transition: "all 0.3s var(--spring)",
+                    }}>
+                    <span className="mood-emoji" style={{
+                      fontSize: 34, display: "inline-block",
+                      transition: "transform 0.3s var(--spring)",
+                      transform: selected ? "scale(1.3)" : "scale(1)",
+                    }}>{m.emoji}</span>
+                    <span style={{
+                      fontSize: 11, fontWeight: selected ? 700 : 500,
+                      color: selected ? moodColor : "var(--text-muted)",
+                      transition: "all 0.2s",
+                    }}>{m.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Content */}
-          <div className="card" style={{ padding: 16 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              {"What\u2019s on your mind?"}
-            </label>
-            <textarea value={content} onChange={(e) => setContent(e.target.value)}
-              placeholder="Write freely. This is your safe space..."
-              autoFocus maxLength={5000} rows={8}
-              style={{
-                width: "100%", padding: "12px", fontSize: 15, borderRadius: "var(--radius-sm)",
-                border: "1.5px solid var(--surface-border)", background: "var(--bg)", color: "var(--text)",
-                outline: "none", marginTop: 6, fontFamily: "var(--font-sans)", resize: "vertical", lineHeight: 1.7,
-                transition: "all 0.25s var(--smooth)",
-              }} />
-            <p style={{ fontSize: 12, color: content.length > 4500 ? "var(--warning)" : "var(--text-muted)", margin: "6px 0 0", textAlign: "right", transition: "color 0.3s" }}>
-              {content.length}/5000
+          {/* Content — clean writing area */}
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", margin: "0 0 8px", paddingLeft: 4 }}>
+              {"\u{1F4AD}"} What{"\u2019"}s on your mind?
             </p>
+            <div style={{
+              borderRadius: "var(--radius-lg)", border: "2px solid var(--surface-border)",
+              background: "var(--bg-card)", overflow: "hidden",
+              boxShadow: content ? "var(--shadow-md)" : "none",
+              transition: "box-shadow 0.3s var(--smooth)",
+            }}>
+              <textarea value={content} onChange={(e) => setContent(e.target.value)}
+                placeholder="Today I felt... I noticed... I'm grateful for..."
+                autoFocus maxLength={5000} rows={10}
+                style={{
+                  width: "100%", padding: "20px", fontSize: 16, border: "none",
+                  background: "transparent", color: "var(--text)",
+                  outline: "none", fontFamily: "var(--font-sans)", resize: "none",
+                  lineHeight: 1.8,
+                }} />
+              <div style={{
+                padding: "8px 20px 12px", display: "flex", justifyContent: "space-between", alignItems: "center",
+                borderTop: "1px solid var(--surface-border)", background: "var(--bg)",
+              }}>
+                <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                  Write freely. This is your space.
+                </span>
+                <span style={{
+                  fontSize: 12, fontWeight: 500,
+                  color: content.length > 4500 ? "var(--warning)" : "var(--text-muted)",
+                  transition: "color 0.3s",
+                }}>
+                  {content.length > 0 ? `${content.length}/5000` : ""}
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* Focus Areas (optional tags) */}
-          <div className="card" style={{ padding: 16 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, display: "block" }}>
-              Related to (optional)
-            </label>
+          {/* Focus Areas — optional tags with emoji */}
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", margin: "0 0 10px", paddingLeft: 4 }}>
+              {"\u{1F3F7}\u{FE0F}"} Related to <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>(optional)</span>
+            </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {FOCUS_AREAS.map((area) => (
-                <button key={area.id} onClick={() => toggleFocus(area.id)}
-                  className={`focus-chip ${focusAreas.includes(area.id) ? "selected" : ""}`}
-                  style={{ fontSize: 12, padding: "6px 12px" }}>
-                  {area.label}
-                </button>
-              ))}
+              {FOCUS_AREAS.map((area) => {
+                const selected = focusAreas.includes(area.id);
+                const emoji: Record<string, string> = {
+                  pray: "\u{1F64F}", heart: "\u{2764}\u{FE0F}", brain: "\u{1F9E0}",
+                  briefcase: "\u{1F4BC}", users: "\u{1F465}", book: "\u{1F4DA}",
+                  "check-circle": "\u{2705}", wallet: "\u{1F4B0}",
+                };
+                return (
+                  <button key={area.id} onClick={() => toggleFocus(area.id)}
+                    className={`focus-chip ${selected ? "selected" : ""}`}
+                    style={{ fontSize: 13, padding: "8px 14px" }}>
+                    <span className="chip-icon" style={{ display: "inline-block", transition: "all 0.3s var(--spring)" }}>{emoji[area.icon] || "\u{2B50}"}</span>
+                    {area.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* Submit */}
           <button onClick={handleCreate} className="btn btn-primary" disabled={!content.trim()}
-            style={{ width: "100%", padding: 14, fontSize: 16, marginBottom: 24 }}>
-            Save Entry
+            style={{
+              width: "100%", padding: "16px", fontSize: 17, marginBottom: 24,
+              borderRadius: "var(--radius-lg)",
+            }}>
+            {"\u{1F4DD}"} Save Entry
           </button>
         </div>
       </div>

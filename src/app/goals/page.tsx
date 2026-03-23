@@ -132,80 +132,157 @@ export default function GoalsPage() {
   if (view === "create") {
     return (
       <div style={{ padding: "0 20px" }}>
-        <div style={{ padding: "20px 0 12px", display: "flex", alignItems: "center", gap: 12 }}>
+        {/* Hero header */}
+        <div className="slide-up" style={{ padding: "24px 0 20px", textAlign: "center", position: "relative" }}>
           <button onClick={() => { resetForm(); setView("list"); }} aria-label="Back"
             className="icon-btn back-btn"
-            style={{ background: "var(--bg-secondary)" }}>
+            style={{ background: "var(--bg-secondary)", position: "absolute", left: 0, top: 24 }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
           </button>
-          <h1 className="font-display fade-in" style={{ fontSize: 24, fontWeight: 600, margin: 0 }}>New Goal</h1>
+          <div className="pop-in" style={{ fontSize: 44, marginBottom: 8 }}>{"\u{1F3AF}"}</div>
+          <h1 className="font-display gradient-text" style={{ fontSize: 26, fontWeight: 700, margin: "0 0 4px" }}>Set a New Goal</h1>
+          <p style={{ fontSize: 14, color: "var(--text-dim)", margin: 0 }}>What do you want to achieve?</p>
         </div>
 
-        <div className="stagger-children" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Title */}
-          <div className="card" style={{ padding: 16 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Title</label>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Run a 5K" autoFocus maxLength={100}
-              style={{ width: "100%", padding: "10px 12px", fontSize: 15, borderRadius: "var(--radius-sm)", border: "1.5px solid var(--surface-border)", background: "var(--bg)", color: "var(--text)", outline: "none", marginTop: 6, fontFamily: "var(--font-sans)", transition: "all 0.25s var(--smooth)" }} />
+        <div className="stagger-children" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Title — large, prominent input */}
+          <div className="fade-in-up">
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
+              placeholder="My goal is to..."
+              autoFocus maxLength={100}
+              style={{
+                width: "100%", padding: "18px 20px", fontSize: 20, fontWeight: 600,
+                borderRadius: "var(--radius-lg)", border: "2px solid var(--surface-border)",
+                background: "var(--bg-card)", color: "var(--text)", outline: "none",
+                fontFamily: "var(--font-display)", transition: "all 0.3s var(--smooth)",
+                boxShadow: title ? "var(--shadow-md)" : "none",
+              }} />
           </div>
 
-          {/* Description */}
-          <div className="card" style={{ padding: 16 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Description (optional)</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Why does this matter to you?" maxLength={500} rows={3}
-              style={{ width: "100%", padding: "10px 12px", fontSize: 15, borderRadius: "var(--radius-sm)", border: "1.5px solid var(--surface-border)", background: "var(--bg)", color: "var(--text)", outline: "none", marginTop: 6, fontFamily: "var(--font-sans)", resize: "vertical", transition: "all 0.25s var(--smooth)" }} />
+          {/* Description — conversational */}
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", margin: "0 0 8px", paddingLeft: 4 }}>
+              {"\u{1F4AD}"} Why does this matter?
+            </p>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)}
+              placeholder="This goal is important to me because..."
+              maxLength={500} rows={3}
+              style={{
+                width: "100%", padding: "16px 18px", fontSize: 15,
+                borderRadius: "var(--radius-lg)", border: "2px solid var(--surface-border)",
+                background: "var(--bg-card)", color: "var(--text)", outline: "none",
+                fontFamily: "var(--font-sans)", resize: "none", lineHeight: 1.6,
+                transition: "all 0.3s var(--smooth)",
+              }} />
           </div>
 
-          {/* Focus area */}
-          <div className="card" style={{ padding: 16 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, display: "block" }}>Focus Area</label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {FOCUS_AREAS.map((area) => (
-                <button key={area.id} onClick={() => setFocusArea(area.id)}
-                  className={`focus-chip ${focusArea === area.id ? "selected" : ""}`}
-                  style={{ fontSize: 13, padding: "7px 14px" }}>
-                  <span className="chip-icon" style={{ display: "inline-block", transition: "all 0.3s var(--spring)" }}>{FOCUS_EMOJI[area.icon]}</span> {area.label}
-                </button>
-              ))}
+          {/* Focus area — visual grid */}
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", margin: "0 0 10px", paddingLeft: 4 }}>
+              {"\u{1F3F7}\u{FE0F}"} What area of your life?
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+              {FOCUS_AREAS.map((area) => {
+                const selected = focusArea === area.id;
+                return (
+                  <button key={area.id} onClick={() => setFocusArea(area.id)}
+                    className={selected ? "pop-in" : ""}
+                    style={{
+                      padding: "14px 12px", borderRadius: "var(--radius-md)",
+                      border: selected ? "2px solid var(--primary)" : "2px solid var(--surface-border)",
+                      background: selected ? "var(--primary-glow)" : "var(--bg-card)",
+                      cursor: "pointer", display: "flex", alignItems: "center", gap: 10,
+                      transition: "all 0.25s var(--spring)",
+                      boxShadow: selected ? "0 0 20px var(--primary-glow)" : "none",
+                      transform: selected ? "scale(1.02)" : "scale(1)",
+                    }}>
+                    <span style={{ fontSize: 22, transition: "transform 0.3s var(--spring)", transform: selected ? "scale(1.2)" : "scale(1)", display: "inline-block" }}>{FOCUS_EMOJI[area.icon]}</span>
+                    <span style={{ fontSize: 13, fontWeight: selected ? 700 : 500, color: selected ? "var(--primary)" : "var(--text-secondary)", transition: "all 0.2s" }}>{area.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* Target date */}
-          <div className="card" style={{ padding: 16 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Target Date</label>
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", margin: "0 0 8px", paddingLeft: 4 }}>
+              {"\u{1F4C5}"} When do you want to achieve this?
+            </p>
             <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)}
               min={new Date().toISOString().split("T")[0]}
-              style={{ width: "100%", padding: "10px 12px", fontSize: 15, borderRadius: "var(--radius-sm)", border: "1.5px solid var(--surface-border)", background: "var(--bg)", color: "var(--text)", outline: "none", marginTop: 6, fontFamily: "var(--font-sans)", transition: "all 0.25s var(--smooth)" }} />
+              style={{
+                width: "100%", padding: "14px 18px", fontSize: 15,
+                borderRadius: "var(--radius-lg)", border: "2px solid var(--surface-border)",
+                background: "var(--bg-card)", color: "var(--text)", outline: "none",
+                fontFamily: "var(--font-sans)", transition: "all 0.3s var(--smooth)",
+              }} />
           </div>
 
-          {/* Tasks / milestones */}
-          <div className="card" style={{ padding: 16 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, display: "block" }}>
-              Steps / Milestones
-            </label>
-            {tasks.map((t, i) => (
-              <div key={t.id} className="fade-in" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--surface-border)", animation: `slideUp 0.3s var(--spring) both`, animationDelay: `${i * 50}ms` }}>
-                <span style={{ flex: 1, fontSize: 14, color: "var(--text)" }}>{t.title}</span>
-                <button onClick={() => removeTask(t.id)} aria-label="Remove"
-                  style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", fontSize: 18, padding: "4px 8px", minWidth: 32, minHeight: 32, transition: "transform 0.2s var(--spring)" }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.2)"}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}>
-                  ×
+          {/* Steps — interactive list builder */}
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", margin: "0 0 10px", paddingLeft: 4 }}>
+              {"\u{1F9E9}"} Break it into steps
+            </p>
+            <div style={{
+              borderRadius: "var(--radius-lg)", border: "2px solid var(--surface-border)",
+              background: "var(--bg-card)", overflow: "hidden",
+            }}>
+              {tasks.map((t, i) => (
+                <div key={t.id} style={{
+                  display: "flex", alignItems: "center", gap: 12, padding: "14px 16px",
+                  borderBottom: "1px solid var(--surface-border)",
+                  animation: `slideUp 0.3s var(--spring) both`, animationDelay: `${i * 50}ms`,
+                }}>
+                  <span style={{
+                    width: 24, height: 24, borderRadius: "50%",
+                    background: "var(--gradient-primary)", color: "#fff",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 12, fontWeight: 700, flexShrink: 0,
+                  }}>{i + 1}</span>
+                  <span style={{ flex: 1, fontSize: 14, color: "var(--text)" }}>{t.title}</span>
+                  <button onClick={() => removeTask(t.id)} aria-label="Remove"
+                    style={{
+                      background: "none", border: "none", color: "var(--danger)", cursor: "pointer",
+                      fontSize: 18, padding: "4px 8px", minWidth: 32, minHeight: 32,
+                      transition: "all 0.2s var(--spring)", borderRadius: "50%",
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.2)"; e.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.background = "none"; }}>
+                    ×
+                  </button>
+                </div>
+              ))}
+              <div style={{ display: "flex", gap: 0, borderTop: tasks.length > 0 ? "none" : "none" }}>
+                <input type="text" value={newTask} onChange={(e) => setNewTask(e.target.value)}
+                  placeholder={tasks.length === 0 ? "What\u2019s step one?" : `Step ${tasks.length + 1}...`}
+                  maxLength={100}
+                  onKeyDown={(e) => e.key === "Enter" && addTask()}
+                  style={{
+                    flex: 1, padding: "14px 16px", fontSize: 14,
+                    border: "none", background: "transparent", color: "var(--text)",
+                    outline: "none", fontFamily: "var(--font-sans)",
+                  }} />
+                <button onClick={addTask}
+                  style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    padding: "12px 16px", color: newTask.trim() ? "var(--primary)" : "var(--text-muted)",
+                    fontWeight: 600, fontSize: 14, transition: "all 0.2s var(--spring)",
+                    minWidth: 44, minHeight: 44,
+                  }}>
+                  + Add
                 </button>
               </div>
-            ))}
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-              <input type="text" value={newTask} onChange={(e) => setNewTask(e.target.value)} placeholder="Add a step..."
-                maxLength={100}
-                onKeyDown={(e) => e.key === "Enter" && addTask()}
-                style={{ flex: 1, padding: "10px 12px", fontSize: 14, borderRadius: "var(--radius-sm)", border: "1.5px solid var(--surface-border)", background: "var(--bg)", color: "var(--text)", outline: "none", fontFamily: "var(--font-sans)", transition: "all 0.25s var(--smooth)" }} />
-              <button onClick={addTask} className="btn btn-secondary" style={{ padding: "8px 16px", fontSize: 14 }}>Add</button>
             </div>
           </div>
 
           {/* Submit */}
-          <button onClick={handleCreate} className="btn btn-primary" disabled={!title.trim()} style={{ width: "100%", padding: "14px", fontSize: 16, marginBottom: 24 }}>
-            Create Goal
+          <button onClick={handleCreate} className="btn btn-primary" disabled={!title.trim()}
+            style={{
+              width: "100%", padding: "16px", fontSize: 17, marginBottom: 24,
+              borderRadius: "var(--radius-lg)",
+            }}>
+            {"\u{2728}"} Create Goal
           </button>
         </div>
       </div>

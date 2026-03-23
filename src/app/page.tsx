@@ -21,17 +21,24 @@ function formatDate(): string {
   });
 }
 
-const QUOTES = [
-  "Every expert was once a beginner. Keep showing up.",
-  "Small daily improvements lead to staggering long-term results.",
-  "The secret of getting ahead is getting started.",
-  "Progress, not perfection.",
-  "You don\u2019t have to be great to start, but you have to start to be great.",
-  "Discipline is choosing between what you want now and what you want most.",
-  "Growth is never by mere chance; it is the result of forces working together.",
+const QUOTES: { text: string; author: string }[] = [
+  { text: "Every expert was once a beginner.", author: "Helen Hayes" },
+  { text: "Small daily improvements lead to staggering long-term results.", author: "Robin Sharma" },
+  { text: "The secret of getting ahead is getting started.", author: "Mark Twain" },
+  { text: "Progress, not perfection.", author: "Unknown" },
+  { text: "You don\u2019t have to be great to start, but you have to start to be great.", author: "Zig Ziglar" },
+  { text: "Discipline is choosing between what you want now and what you want most.", author: "Abraham Lincoln" },
+  { text: "Growth is never by mere chance; it is the result of forces working together.", author: "James Cash Penney" },
+  { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
+  { text: "It does not matter how slowly you go as long as you do not stop.", author: "Confucius" },
+  { text: "What lies behind us and what lies before us are tiny matters compared to what lies within us.", author: "Ralph Waldo Emerson" },
+  { text: "We are what we repeatedly do. Excellence, then, is not an act, but a habit.", author: "Aristotle" },
+  { text: "The best time to plant a tree was 20 years ago. The second best time is now.", author: "Unknown" },
+  { text: "Be not afraid of growing slowly, be afraid only of standing still.", author: "Unknown" },
+  { text: "Believe you can and you\u2019re halfway there.", author: "Theodore Roosevelt" },
 ];
 
-function getDailyQuote(): string {
+function getDailyQuote(): { text: string; author: string } {
   const day = Math.floor(Date.now() / 86400000);
   return QUOTES[day % QUOTES.length];
 }
@@ -244,11 +251,14 @@ export default function HomePage() {
           animationDelay: "0.3s",
         }}
       >
-        <p style={{ fontSize: 13, fontWeight: 600, opacity: 0.9, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 8px" }}>
+        <p style={{ fontSize: 13, fontWeight: 600, opacity: 0.9, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px" }}>
           {"\u{2728}"} Daily Reminder
         </p>
-        <p className="font-display" style={{ fontSize: 20, fontWeight: 500, lineHeight: 1.5, margin: 0 }}>
-          {getDailyQuote()}
+        <p className="font-display" style={{ fontSize: 20, fontWeight: 500, lineHeight: 1.5, margin: "0 0 8px" }}>
+          {"\u201C"}{getDailyQuote().text}{"\u201D"}
+        </p>
+        <p style={{ fontSize: 13, fontWeight: 500, opacity: 0.75, margin: 0 }}>
+          — {getDailyQuote().author}
         </p>
       </div>
 
