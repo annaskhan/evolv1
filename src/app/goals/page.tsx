@@ -164,7 +164,7 @@ export default function GoalsPage() {
                 <button key={area.id} onClick={() => setFocusArea(area.id)}
                   className={`focus-chip ${focusArea === area.id ? "selected" : ""}`}
                   style={{ fontSize: 13, padding: "7px 14px" }}>
-                  {FOCUS_EMOJI[area.icon]} {area.label}
+                  <span className="chip-icon" style={{ display: "inline-block", transition: "all 0.3s var(--spring)" }}>{FOCUS_EMOJI[area.icon]}</span> {area.label}
                 </button>
               ))}
             </div>
@@ -228,7 +228,7 @@ export default function GoalsPage() {
           </div>
           <button onClick={() => deleteGoal(selectedGoal.id)} aria-label="Delete goal"
             className="icon-btn delete-btn"
-            style={{ background: "rgba(193,87,78,0.1)" }}>
+            style={{ background: "rgba(239,68,68,0.08)" }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
             </svg>
@@ -243,7 +243,7 @@ export default function GoalsPage() {
                 {getFocusEmoji(selectedGoal.focusArea)} {getFocusLabel(selectedGoal.focusArea)}
               </span>
               {selectedGoal.completed && (
-                <span className="bounce-in" style={{ fontSize: 13, background: "rgba(64,145,108,0.1)", padding: "4px 12px", borderRadius: "var(--radius-xl)", color: "var(--success)", fontWeight: 600 }}>
+                <span className="bounce-in" style={{ fontSize: 13, background: "rgba(16,185,129,0.1)", padding: "4px 12px", borderRadius: "var(--radius-xl)", color: "var(--success)", fontWeight: 600 }}>
                   {"\u{1F389}"} Completed
                 </span>
               )}

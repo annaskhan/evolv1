@@ -22,7 +22,7 @@ function FocusIcon({ icon }: { icon: string }) {
     "check-circle": "\u{2705}",
     wallet: "\u{1F4B0}",
   };
-  return <span className="text-lg">{icons[icon] || "\u{2B50}"}</span>;
+  return <span className="text-lg chip-icon" style={{ display: "inline-block", transition: "all 0.3s var(--spring)" }}>{icons[icon] || "\u{2B50}"}</span>;
 }
 
 export default function Onboarding({ onComplete }: OnboardingProps) {

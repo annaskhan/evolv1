@@ -9,11 +9,11 @@ import { type Goal, type JournalEntry, type Mood, MOODS } from "@/lib/models";
 
 function getMoodColor(mood: Mood): string {
   switch (mood) {
-    case "great": return "#40916c";
-    case "good": return "#74c69d";
-    case "okay": return "#e9c46a";
-    case "low": return "#e09f5a";
-    case "rough": return "#c1574e";
+    case "great": return "#10b981";
+    case "good": return "#8b5cf6";
+    case "okay": return "#f59e0b";
+    case "low": return "#f472b6";
+    case "rough": return "#ef4444";
   }
 }
 
@@ -164,19 +164,25 @@ export default function ProgressPage() {
         {/* ===== Overview Stats ===== */}
         <div style={{ display: "flex", gap: 10 }}>
           {[
-            { value: completedGoals.length, label: "Goals Done", color: "var(--primary)", delay: "0ms" },
-            { value: entries.length, label: "Journal Entries", color: "var(--accent)", delay: "100ms" },
-            { value: journalStreak, label: "Day Streak", color: "var(--secondary)", delay: "200ms", emoji: journalStreak >= 7 ? "\u{1F525}" : "" },
+            { value: completedGoals.length, label: "Goals Done", gradient: "var(--gradient-primary)", delay: "0ms" },
+            { value: entries.length, label: "Journal Entries", gradient: "var(--gradient-accent)", delay: "100ms" },
+            { value: journalStreak, label: "Day Streak", gradient: "var(--gradient-warm)", delay: "200ms", emoji: journalStreak >= 7 ? "\u{1F525}" : "" },
           ].map((stat) => (
             <div key={stat.label} className="card" style={{
               flex: 1, padding: "16px 12px", textAlign: "center",
               animation: loaded ? `bounceIn 0.5s var(--spring) both` : "none",
               animationDelay: stat.delay,
             }}>
-              <p className="stat-number" style={{ fontSize: 28, fontWeight: 700, color: stat.color, margin: 0, animationDelay: stat.delay }}>
+              <p className="stat-number" style={{
+                fontSize: 28, fontWeight: 800, margin: 0, animationDelay: stat.delay,
+                background: stat.gradient,
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+              }}>
                 {stat.value}{stat.emoji || ""}
               </p>
-              <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "2px 0 0" }}>{stat.label}</p>
+              <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "4px 0 0", fontWeight: 500 }}>{stat.label}</p>
             </div>
           ))}
         </div>

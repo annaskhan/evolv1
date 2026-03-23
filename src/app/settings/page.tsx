@@ -103,11 +103,15 @@ export default function SettingsPage() {
             Theme
           </label>
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-            {(["light", "dark", "system"] as const).map((t) => (
-              <button key={t} onClick={() => setTheme(t)}
-                className={theme === t ? "btn btn-primary" : "btn btn-secondary"}
-                style={{ flex: 1, padding: "10px 12px", fontSize: 14, textTransform: "capitalize" }}>
-                {t}
+            {([
+              { id: "light" as const, icon: "\u{2600}\u{FE0F}", label: "Light" },
+              { id: "dark" as const, icon: "\u{1F31A}", label: "Dark" },
+              { id: "system" as const, icon: "\u{1F4BB}", label: "System" },
+            ]).map((t) => (
+              <button key={t.id} onClick={() => setTheme(t.id)}
+                className={theme === t.id ? "btn btn-primary" : "btn btn-secondary"}
+                style={{ flex: 1, padding: "10px 12px", fontSize: 14, gap: 6 }}>
+                <span style={{ display: "inline-block", transition: "transform 0.3s var(--spring)", transform: theme === t.id ? "scale(1.15)" : "scale(1)" }}>{t.icon}</span> {t.label}
               </button>
             ))}
           </div>
@@ -172,7 +176,7 @@ export default function SettingsPage() {
             This will permanently delete all goals, journal entries, and settings.
           </p>
           <button className="btn" onClick={handleReset}
-            style={{ background: "rgba(193, 87, 78, 0.1)", color: "var(--danger)", width: "100%", border: "1px solid rgba(193, 87, 78, 0.2)" }}>
+            style={{ background: "rgba(239, 68, 68, 0.08)", color: "var(--danger)", width: "100%", border: "1px solid rgba(239, 68, 68, 0.2)" }}>
             Reset Everything
           </button>
         </div>

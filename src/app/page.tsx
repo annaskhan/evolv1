@@ -36,11 +36,102 @@ function getDailyQuote(): string {
   return QUOTES[day % QUOTES.length];
 }
 
+function AnimatedGoalIcon({ hovered }: { hovered: boolean }) {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "all 0.3s var(--spring)" }}>
+      <circle cx="12" cy="12" r="10" stroke="var(--primary)" strokeWidth="1.8" fill="rgba(108,60,224,0.08)">
+        {hovered && <animate attributeName="r" values="10;11;10" dur="0.8s" repeatCount="1" />}
+      </circle>
+      <circle cx="12" cy="12" r="6" stroke="var(--primary-light)" strokeWidth="1.5" fill="none">
+        {hovered && <animate attributeName="r" values="6;5;6" dur="0.8s" repeatCount="1" />}
+      </circle>
+      <circle cx="12" cy="12" r="2" fill="var(--accent)" stroke="none">
+        {hovered && <animate attributeName="r" values="2;3;2" dur="0.6s" repeatCount="1" />}
+      </circle>
+    </svg>
+  );
+}
+
+function AnimatedJournalIcon({ hovered }: { hovered: boolean }) {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "all 0.3s var(--spring)" }}>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" fill="rgba(244,114,182,0.1)" />
+      {hovered && (
+        <line x1="4" y1="20" x2="10" y2="20" stroke="var(--accent-light)" strokeWidth="2">
+          <animate attributeName="x2" values="4;12;4" dur="1s" repeatCount="1" />
+        </line>
+      )}
+    </svg>
+  );
+}
+
+function AnimatedProgressIcon({ hovered }: { hovered: boolean }) {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "all 0.3s var(--spring)" }}>
+      {hovered ? (
+        <>
+          <line x1="6" y1="20" x2="6" y2="14" stroke="var(--accent)">
+            <animate attributeName="y2" values="20;14" dur="0.3s" fill="freeze" />
+          </line>
+          <line x1="12" y1="20" x2="12" y2="4" stroke="var(--secondary)">
+            <animate attributeName="y2" values="20;4" dur="0.4s" fill="freeze" />
+          </line>
+          <line x1="18" y1="20" x2="18" y2="10" stroke="var(--primary)">
+            <animate attributeName="y2" values="20;10" dur="0.35s" fill="freeze" />
+          </line>
+        </>
+      ) : (
+        <>
+          <line x1="6" y1="20" x2="6" y2="14" stroke="var(--secondary)" />
+          <line x1="12" y1="20" x2="12" y2="4" stroke="var(--secondary)" />
+          <line x1="18" y1="20" x2="18" y2="10" stroke="var(--secondary)" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+function QuickActionCard({ href, icon, title, subtitle, gradientBg }: {
+  href: string;
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  gradientBg: string;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <Link href={href} style={{ textDecoration: "none" }} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+      <div className="card card-interactive card-gradient" style={{ padding: "20px", display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{
+          width: 52, height: 52, borderRadius: "var(--radius-md)",
+          background: gradientBg, display: "flex", alignItems: "center", justifyContent: "center",
+          transition: "all 0.35s var(--spring)",
+          transform: hovered ? "scale(1.08) rotate(-3deg)" : "scale(1)",
+          boxShadow: hovered ? "0 4px 16px rgba(108, 60, 224, 0.15)" : "none",
+        }}>
+          {icon}
+        </div>
+        <div style={{ flex: 1 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0, color: "var(--text)" }}>{title}</h3>
+          <p style={{ fontSize: 13, color: "var(--text-dim)", margin: "2px 0 0" }}>{subtitle}</p>
+        </div>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "all 0.3s var(--spring)", transform: hovered ? "translateX(3px)" : "translateX(0)" }}>
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      </div>
+    </Link>
+  );
+}
+
 export default function HomePage() {
   const [name, setName] = useState("");
   const [goals, setGoals] = useState<Goal[]>([]);
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [goalsHovered, setGoalsHovered] = useState(false);
+  const [journalHovered, setJournalHovered] = useState(false);
+  const [progressHovered, setProgressHovered] = useState(false);
 
   useEffect(() => {
     setName(getItem(STORAGE_KEYS.USER_NAME, ""));
@@ -88,17 +179,23 @@ export default function HomePage() {
       {loaded && (goals.length > 0 || entries.length > 0) && (
         <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
           {[
-            { value: activeGoals.length, label: "Active Goals", color: "var(--primary)", delay: "0ms" },
-            { value: completedGoals.length, label: "Completed", color: "var(--accent)", delay: "100ms" },
-            { value: thisWeekEntries.length, label: "This Week", color: "var(--secondary)", delay: "200ms" },
+            { value: activeGoals.length, label: "Active Goals", gradient: "var(--gradient-primary)", delay: "0ms" },
+            { value: completedGoals.length, label: "Completed", gradient: "var(--gradient-accent)", delay: "100ms" },
+            { value: thisWeekEntries.length, label: "This Week", gradient: "var(--gradient-warm)", delay: "200ms" },
           ].map((stat) => (
             <div key={stat.label} className="card" style={{
               flex: 1, padding: "14px 16px", textAlign: "center",
               animation: `bounceIn 0.5s var(--spring) both`,
               animationDelay: stat.delay,
             }}>
-              <p className="stat-number" style={{ fontSize: 24, fontWeight: 700, color: stat.color, margin: 0, animationDelay: stat.delay }}>{stat.value}</p>
-              <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "2px 0 0" }}>{stat.label}</p>
+              <p className="stat-number" style={{
+                fontSize: 26, fontWeight: 800, margin: 0, animationDelay: stat.delay,
+                background: stat.gradient,
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+              }}>{stat.value}</p>
+              <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "4px 0 0", fontWeight: 500 }}>{stat.label}</p>
             </div>
           ))}
         </div>
@@ -106,44 +203,49 @@ export default function HomePage() {
 
       {/* Quick Actions */}
       <div className="stagger-children" style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 20 }}>
-        {[
-          { href: "/goals", emoji: "\u{1F3AF}", bg: "var(--primary-glow)", title: "My Goals", subtitle: activeGoals.length > 0 ? `${activeGoals.length} active goal${activeGoals.length > 1 ? "s" : ""}` : "Set targets and track your progress" },
-          { href: "/journal", emoji: "\u{1F4DD}", bg: "rgba(181, 131, 141, 0.1)", title: "Journal", subtitle: entries.length > 0 ? `${entries.length} entr${entries.length > 1 ? "ies" : "y"} so far` : "Reflect on your day and thoughts" },
-          { href: "/progress", emoji: "\u{1F4C8}", bg: "rgba(233, 196, 106, 0.1)", title: "Progress", subtitle: "See how far you\u2019ve come" },
-        ].map((item) => (
-          <Link key={item.href} href={item.href} style={{ textDecoration: "none" }}>
-            <div className="card card-interactive" style={{ padding: "20px", display: "flex", alignItems: "center", gap: 16 }}>
-              <div style={{
-                width: 48, height: 48, borderRadius: "var(--radius-md)",
-                background: item.bg, display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 22, transition: "transform 0.3s var(--spring)",
-              }}>
-                {item.emoji}
-              </div>
-              <div style={{ flex: 1 }}>
-                <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0, color: "var(--text)" }}>{item.title}</h3>
-                <p style={{ fontSize: 13, color: "var(--text-dim)", margin: "2px 0 0" }}>{item.subtitle}</p>
-              </div>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.3s var(--smooth)" }}>
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </div>
-          </Link>
-        ))}
+        <div onMouseEnter={() => setGoalsHovered(true)} onMouseLeave={() => setGoalsHovered(false)}>
+          <QuickActionCard
+            href="/goals"
+            icon={<AnimatedGoalIcon hovered={goalsHovered} />}
+            title="My Goals"
+            subtitle={activeGoals.length > 0 ? `${activeGoals.length} active goal${activeGoals.length > 1 ? "s" : ""}` : "Set targets and track your progress"}
+            gradientBg="var(--primary-glow)"
+          />
+        </div>
+        <div onMouseEnter={() => setJournalHovered(true)} onMouseLeave={() => setJournalHovered(false)}>
+          <QuickActionCard
+            href="/journal"
+            icon={<AnimatedJournalIcon hovered={journalHovered} />}
+            title="Journal"
+            subtitle={entries.length > 0 ? `${entries.length} entr${entries.length > 1 ? "ies" : "y"} so far` : "Reflect on your day and thoughts"}
+            gradientBg="rgba(244, 114, 182, 0.1)"
+          />
+        </div>
+        <div onMouseEnter={() => setProgressHovered(true)} onMouseLeave={() => setProgressHovered(false)}>
+          <QuickActionCard
+            href="/progress"
+            icon={<AnimatedProgressIcon hovered={progressHovered} />}
+            title="Progress"
+            subtitle="See how far you\u2019ve come"
+            gradientBg="rgba(245, 158, 11, 0.1)"
+          />
+        </div>
       </div>
 
       {/* Motivational card */}
       <div
-        className="card quote-card slide-up"
+        className="card quote-card slide-up blob-bg"
         style={{
           marginTop: 24, padding: "24px 20px",
-          background: "linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)",
+          background: "var(--gradient-hero)",
+          backgroundSize: "200% 200%",
+          animation: "gradientShift 6s ease infinite, slideUp 0.5s var(--spring)",
           border: "none", color: "#ffffff",
           animationDelay: "0.3s",
         }}
       >
-        <p style={{ fontSize: 13, fontWeight: 600, opacity: 0.85, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 8px" }}>
-          {"\u{1F331}"} Daily Reminder
+        <p style={{ fontSize: 13, fontWeight: 600, opacity: 0.9, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 8px" }}>
+          {"\u{2728}"} Daily Reminder
         </p>
         <p className="font-display" style={{ fontSize: 20, fontWeight: 500, lineHeight: 1.5, margin: 0 }}>
           {getDailyQuote()}
@@ -152,7 +254,7 @@ export default function HomePage() {
 
       {/* App branding */}
       <div style={{ textAlign: "center", marginTop: 32, paddingBottom: 16 }}>
-        <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>
+        <p className="gradient-text" style={{ fontSize: 12, margin: 0, fontWeight: 600 }}>
           {APP_NAME} — Small steps, lasting change
         </p>
       </div>

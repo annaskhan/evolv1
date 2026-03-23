@@ -106,8 +106,8 @@ export default function JournalPage() {
                     background: mood === m.id ? "var(--primary-glow)" : "var(--bg)",
                     cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
                   }}>
-                  <span style={{ fontSize: 28, transition: "transform 0.3s var(--spring)", transform: mood === m.id ? "scale(1.2)" : "scale(1)" }}>{m.emoji}</span>
-                  <span style={{ fontSize: 11, color: mood === m.id ? "var(--primary)" : "var(--text-muted)", fontWeight: mood === m.id ? 600 : 500, transition: "all 0.2s" }}>{m.label}</span>
+                  <span className="mood-emoji" style={{ fontSize: 30, transition: "transform 0.3s var(--spring)", transform: mood === m.id ? "scale(1.25)" : "scale(1)", display: "inline-block" }}>{m.emoji}</span>
+                  <span style={{ fontSize: 11, color: mood === m.id ? "var(--primary)" : "var(--text-muted)", fontWeight: mood === m.id ? 700 : 500, transition: "all 0.2s", letterSpacing: mood === m.id ? "0.02em" : "normal" }}>{m.label}</span>
                 </button>
               ))}
             </div>
@@ -175,7 +175,7 @@ export default function JournalPage() {
           </div>
           <button onClick={() => deleteEntry(selectedEntry.id)} aria-label="Delete entry"
             className="icon-btn delete-btn"
-            style={{ background: "rgba(193,87,78,0.1)" }}>
+            style={{ background: "rgba(239,68,68,0.08)" }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
             </svg>
